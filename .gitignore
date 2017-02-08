@@ -1,3 +1,6 @@
+# External Libraries
+external/
+
 # Compiled Object files
 *.slo
 *.lo
