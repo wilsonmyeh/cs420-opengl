@@ -3,7 +3,7 @@
   Assignment 1: Height Fields
   C++ starter code
 
-  Student username: <type your USC username here>
+  Student username: <wilsonye>
 */
 
 #include <iostream>
@@ -49,6 +49,34 @@ int windowWidth = 1280;
 int windowHeight = 720;
 char windowTitle[512] = "CSCI 420 homework I";
 
+// BEGIN ADDITIONS
+GLuint buffer;
+OpenGLMatrix *matrix;
+
+// Shader and uniform variables stuff
+BasicPipelineProgram *pipelineProgram;
+GLint program;
+GLint h_modelViewMatrix, h_projectionMatrix;
+GLuint vao;
+
+// Quad Stuff
+//GLfloat theta[3] = { 0.0, 0.0, 0.0 };
+//GLfloat delta = 2.0;
+//GLint axis = 2;
+//GLint spin = 1;
+
+// Triangle specifications
+int numVertices = 3;
+float positions[9] =
+{0, 0, -1,
+ 1, 0, -1,
+ 0, 1, -1 };
+float colors[12] =
+{1, 0, 0, 1,	// Red
+ 0, 1, 0, 1,	// Green
+ 0, 0, 1, 1 };	// Blue
+// END ADDITIONS
+
 ImageIO * heightmapImage;
 
 // write a screenshot to the specified filename
@@ -66,9 +94,82 @@ void saveScreenshot(const char * filename)
   delete [] screenshotData;
 }
 
+//void spinQuad()
+//{
+//	// spin the quad delta degrees around the selected axis
+//	if (spin)
+//		theta[axis] += delta;
+//	if (theta[axis] > 360.0)
+//		theta[axis] -= 360.0;
+//	// display result (do not forget this!)
+//	glutPostRedisplay();
+//}
+
+//void renderQuad()
+//{
+//	GLint first = 0;
+//	GLsizei numberOfVertices = 6;
+//	glDrawArrays(GL_TRIANGLES, first, numberOfVertices);
+//}
+
+void bindProgram()
+{
+	// bind our buffer, so that glVertexAttribPointer refers
+	// to the correct buffer
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	GLuint loc = glGetAttribLocation(program, "position");
+	glEnableVertexAttribArray(loc);
+	const void * offset = (const void*)0;
+	glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, offset);
+	GLuint loc2 = glGetAttribLocation(program, "color");
+	glEnableVertexAttribArray(loc2);
+	offset = (const void*) sizeof(positions);
+	glVertexAttribPointer(loc2, 4, GL_FLOAT, GL_FALSE, 0, offset);
+
+	// write projection and modelview matrix to shader
+	GLboolean isRowMajor = GL_FALSE;
+
+	float m[16]; // column-major
+	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
+	matrix->GetMatrix(m);
+	// upload m to the GPU
+	glUniformMatrix4fv(h_modelViewMatrix, 1, isRowMajor, m);
+
+	float p[16]; // column-major
+	matrix->SetMatrixMode(OpenGLMatrix::Projection);
+	matrix->GetMatrix(p);
+	// upload p to the GPU
+	glUniformMatrix4fv(h_projectionMatrix, 1, isRowMajor, p);
+	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
+}
+
 void displayFunc()
 {
   // render some stuff...
+	glClear(GL_COLOR_BUFFER_BIT |
+		GL_DEPTH_BUFFER_BIT);
+	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
+	matrix->LoadIdentity();
+	double zStudent = 3 + (4780838615.0 / 10000000000.0);
+	matrix->LookAt(0, 0, zStudent, 0, 0, -1, 0, 1, 0);
+
+	bindProgram();
+
+	pipelineProgram->Bind(); // bind the pipeline program
+	glBindVertexArray(vao); // bind the VAO
+
+	GLint first = 0;
+	GLsizei count = numVertices;
+	glDrawArrays(GL_TRIANGLES, first, count);
+
+	glBindVertexArray(0); // unbind the VAO
+
+	//matrix->Rotate(theta[0], 1.0, 0.0, 0.0);
+	//matrix->Rotate(theta[1], 0.0, 1.0, 0.0);
+	//matrix->Rotate(theta[2], 0.0, 0.0, 1.0);
+	//renderQuad();
+
+	glutSwapBuffers();
 }
 
 void idleFunc()
@@ -83,9 +184,15 @@ void idleFunc()
 
 void reshapeFunc(int w, int h)
 {
+  GLfloat aspect = (GLfloat)w / (GLfloat)h;
   glViewport(0, 0, w, h);
 
   // setup perspective matrix...
+  matrix->SetMatrixMode(OpenGLMatrix::Projection);
+  matrix->LoadIdentity();
+  matrix->Perspective(45.0f, 1280.0f/720.0f, 0.01f, 1000.0f); // Hard coded aspect ratio for milestone
+  matrix->SetMatrixMode(OpenGLMatrix::ModelView);
+  matrix->LoadIdentity();
 }
 
 void mouseMotionDragFunc(int x, int y)
@@ -217,6 +324,68 @@ void keyboardFunc(unsigned char key, int x, int y)
   }
 }
 
+void initVAO()
+{
+	// create the vao
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao); // bind the VAO
+
+	// bind the VBO “buffer” (must be previously created)
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	// get location index of the “position” shader variable
+	GLuint loc = glGetAttribLocation(program, "position");
+	glEnableVertexAttribArray(loc); // enable the “position” attribute
+	const void * offset = (const void*)0; GLsizei stride = 0;
+	GLboolean normalized = GL_FALSE;
+	// set the layout of the “position” attribute data
+	glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
+
+	// get the location index of the “color” shader variable
+	loc = glGetAttribLocation(program, "color");
+	glEnableVertexAttribArray(loc); // enable the “color” attribute
+	offset = (const void*) sizeof(positions);
+	stride = 0;
+	normalized = GL_FALSE;
+	// set the layout of the “color” attribute data
+	glVertexAttribPointer(loc, 4, GL_FLOAT, normalized, stride, offset);
+	glBindVertexArray(0); // unbind the VAO
+}
+
+void initPipelineProgram()
+{
+	pipelineProgram = new BasicPipelineProgram();
+	pipelineProgram->Init("../openGLHelper-starterCode");
+	pipelineProgram->Bind(); // must do (once) before glUniformMatrix4fv
+
+	// get a handle to the program
+	program = pipelineProgram->GetProgramHandle();
+
+	// initialize uniform variable handles
+	// get a handle to the modelViewMatrix shader variable
+	h_modelViewMatrix = glGetUniformLocation(program, "modelViewMatrix");
+
+	// do the same for the projectionMatrix
+	h_projectionMatrix = glGetUniformLocation(program, "projectionMatrix");
+
+	initVAO();
+}
+
+void initVBO()
+{
+	glGenBuffers(1, &buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(colors),
+		NULL, GL_STATIC_DRAW); // init buffer’s size, but don’t assign any data to it
+
+	// upload position data
+	glBufferSubData(GL_ARRAY_BUFFER, 0,
+		sizeof(positions), positions);
+
+	// upload color data
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions),
+		sizeof(colors), colors);
+}
+
 void initScene(int argc, char *argv[])
 {
   // load the image from a jpeg disk file to main memory
@@ -228,8 +397,10 @@ void initScene(int argc, char *argv[])
   }
 
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
-  // do additional initialization here...
+  glEnable(GL_DEPTH_TEST);
+  matrix = new OpenGLMatrix();
+  initVBO();
+  initPipelineProgram();
 }
 
 int main(int argc, char *argv[])
