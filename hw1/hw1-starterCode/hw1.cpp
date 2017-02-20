@@ -59,16 +59,8 @@ GLuint trianglesBuffer;
 
 // Shader and uniform variables
 BasicPipelineProgram *pipelineProgram;
-BasicPipelineProgram *linesPipelineProgram;
-BasicPipelineProgram *trianglesPipelineProgram;
-
 GLint program;
-GLint linesProgram;
-GLint trianglesProgram;
-
 GLint h_modelViewMatrix, h_projectionMatrix;
-GLint lines_h_modelViewMatrix, lines_h_projectionMatrix;
-GLint triangles_h_modelViewMatrix, triangles_h_projectionMatrix;
 
 GLuint vao;
 GLuint linesvao;
@@ -140,44 +132,31 @@ void displayFunc()
 	matrix->LookAt( heightmapImage->getHeight()*2.0f, heightmapImage->getHeight()*2.0f, heightmapImage->getWidth()*-3.0f,
 					heightmapImage->getHeight()*0.5f, 0.0f, heightmapImage->getWidth()*-0.5f, 0.0f, 1.0f, 0.0f);
 
-	GLint typeModelViewMatrix;
-	GLint typeProjectionMatrix;
-	BasicPipelineProgram *typePipelineProgram;
 	GLuint typevao;
 	int typeNumVertices;
 	GLuint drawType;
-
 	switch (renderType)
 	{
 	case 'p':
-		typeModelViewMatrix = h_modelViewMatrix;
-		typeProjectionMatrix = h_projectionMatrix;
-		typePipelineProgram = pipelineProgram;
 		typevao = vao;
 		typeNumVertices = numVertices;
 		drawType = GL_POINTS;
 		break;
 
 	case 'l':
-		typeModelViewMatrix = lines_h_modelViewMatrix;
-		typeProjectionMatrix = lines_h_projectionMatrix;
-		typePipelineProgram = linesPipelineProgram;
 		typevao = linesvao;
 		typeNumVertices = numLineVertices;
 		drawType = GL_LINES;
 		break;
 
 	case 't':
-		typeModelViewMatrix = triangles_h_modelViewMatrix;
-		typeProjectionMatrix = triangles_h_projectionMatrix;
-		typePipelineProgram = trianglesPipelineProgram;
 		typevao = trianglesvao;
 		typeNumVertices = numTriVertices;
 		drawType = GL_TRIANGLES;
 		break;
 	}
 
-	typePipelineProgram->Bind(); // bind the pipeline program, must do once before glUniformMatrix4fv
+	pipelineProgram->Bind(); // bind the pipeline program, must do once before glUniformMatrix4fv
 
 	// write projection and modelview matrix to shader
 	GLboolean isRowMajor = GL_FALSE;
@@ -185,13 +164,13 @@ void displayFunc()
 	float m[16]; // column-major
 	matrix->GetMatrix(m);
 	// upload m to the GPU
-	glUniformMatrix4fv(typeModelViewMatrix, 1, isRowMajor, m);
+	glUniformMatrix4fv(h_modelViewMatrix, 1, isRowMajor, m);
 
 	float p[16]; // column-major
 	matrix->SetMatrixMode(OpenGLMatrix::Projection);
 	matrix->GetMatrix(p);
 	// upload p to the GPU
-	glUniformMatrix4fv(typeProjectionMatrix, 1, isRowMajor, p);
+	glUniformMatrix4fv(h_projectionMatrix, 1, isRowMajor, p);
 	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 
 	glBindVertexArray(typevao); // bind the VAO
@@ -385,7 +364,7 @@ void initVAO()
 	// bind the VBO “buffer” (must be previously created)
 	glBindBuffer(GL_ARRAY_BUFFER, trianglesBuffer);
 	// get location index of the “position” shader variable
-	GLuint loc = glGetAttribLocation(trianglesProgram, "position");
+	GLuint loc = glGetAttribLocation(program, "position");
 	glEnableVertexAttribArray(loc); // enable the “position” attribute
 	const void * offset = (const void*)0;
 	GLsizei stride = 0;
@@ -394,7 +373,7 @@ void initVAO()
 	glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
 
 	// get the location index of the “color” shader variable
-	loc = glGetAttribLocation(trianglesProgram, "color");
+	loc = glGetAttribLocation(program, "color");
 	glEnableVertexAttribArray(loc); // enable the “color” attribute
 	offset = (const void*) triPositionSize;
 	stride = 0;
@@ -411,7 +390,7 @@ void initVAO()
 							// bind the VBO “buffer” (must be previously created)
 	glBindBuffer(GL_ARRAY_BUFFER, linesBuffer);
 	// get location index of the “position” shader variable
-	loc = glGetAttribLocation(linesProgram, "position");
+	loc = glGetAttribLocation(program, "position");
 	glEnableVertexAttribArray(loc); // enable the “position” attribute
 	offset = (const void*)0;
 	stride = 0;
@@ -420,7 +399,7 @@ void initVAO()
 	glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
 
 	// get the location index of the “color” shader variable
-	loc = glGetAttribLocation(linesProgram, "color");
+	loc = glGetAttribLocation(program, "color");
 	glEnableVertexAttribArray(loc); // enable the “color” attribute
 	offset = (const void*)linePositionSize;
 	stride = 0;
@@ -472,36 +451,6 @@ void initPipelineProgram()
 
 	// do the same for the projectionMatrix
 	h_projectionMatrix = glGetUniformLocation(program, "projectionMatrix");
-
-	// Lines
-	linesPipelineProgram = new BasicPipelineProgram();
-	linesPipelineProgram->Init("../openGLHelper-starterCode");
-	linesPipelineProgram->Bind();
-
-							 // get a handle to the program
-	linesProgram = linesPipelineProgram->GetProgramHandle();
-
-	// initialize uniform variable handles
-	// get a handle to the modelViewMatrix shader variable
-	lines_h_modelViewMatrix = glGetUniformLocation(linesProgram, "modelViewMatrix");
-
-	// do the same for the projectionMatrix
-	lines_h_projectionMatrix = glGetUniformLocation(linesProgram, "projectionMatrix");
-
-	// Triangles
-	trianglesPipelineProgram = new BasicPipelineProgram();
-	trianglesPipelineProgram->Init("../openGLHelper-starterCode");
-	trianglesPipelineProgram->Bind();
-
-							 // get a handle to the program
-	trianglesProgram = trianglesPipelineProgram->GetProgramHandle();
-
-	// initialize uniform variable handles
-	// get a handle to the modelViewMatrix shader variable
-	triangles_h_modelViewMatrix = glGetUniformLocation(trianglesProgram, "modelViewMatrix");
-
-	// do the same for the projectionMatrix
-	triangles_h_projectionMatrix = glGetUniformLocation(trianglesProgram, "projectionMatrix");
 
 	initVAO();
 }
