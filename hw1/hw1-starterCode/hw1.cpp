@@ -128,13 +128,6 @@ void saveScreenshot(const char * filename)
 //	glutPostRedisplay();
 //}
 
-//void renderQuad()
-//{
-//	GLint first = 0;
-//	GLsizei numberOfVertices = 6;
-//	glDrawArrays(GL_TRIANGLES, first, numberOfVertices);
-//}
-
 void displayFunc()
 {
   // render some stuff...
@@ -149,15 +142,9 @@ void displayFunc()
 
 	GLint typeModelViewMatrix;
 	GLint typeProjectionMatrix;
-
-	GLuint typeBuffer;
-	GLint typeProgram;
-	int typePositionSize;
-
 	BasicPipelineProgram *typePipelineProgram;
 	GLuint typevao;
 	int typeNumVertices;
-
 	GLuint drawType;
 
 	switch (renderType)
@@ -165,48 +152,32 @@ void displayFunc()
 	case 'p':
 		typeModelViewMatrix = h_modelViewMatrix;
 		typeProjectionMatrix = h_projectionMatrix;
-
-		typeBuffer = buffer;
-		typeProgram = program;
-		typePositionSize = positionSize;
-
 		typePipelineProgram = pipelineProgram;
 		typevao = vao;
 		typeNumVertices = numVertices;
-
 		drawType = GL_POINTS;
 		break;
 
 	case 'l':
 		typeModelViewMatrix = lines_h_modelViewMatrix;
 		typeProjectionMatrix = lines_h_projectionMatrix;
-
-		typeBuffer = linesBuffer;
-		typeProgram = linesProgram;
-		typePositionSize = linePositionSize;
-
 		typePipelineProgram = linesPipelineProgram;
 		typevao = linesvao;
 		typeNumVertices = numLineVertices;
-
 		drawType = GL_LINES;
 		break;
 
 	case 't':
 		typeModelViewMatrix = triangles_h_modelViewMatrix;
 		typeProjectionMatrix = triangles_h_projectionMatrix;
-
-		typeBuffer = trianglesBuffer;
-		typeProgram = trianglesProgram;
-		typePositionSize = triPositionSize;
-
 		typePipelineProgram = trianglesPipelineProgram;
 		typevao = trianglesvao;
 		typeNumVertices = numTriVertices;
-
 		drawType = GL_TRIANGLES;
 		break;
 	}
+
+	typePipelineProgram->Bind(); // bind the pipeline program, must do once before glUniformMatrix4fv
 
 	// write projection and modelview matrix to shader
 	GLboolean isRowMajor = GL_FALSE;
@@ -223,21 +194,7 @@ void displayFunc()
 	glUniformMatrix4fv(typeProjectionMatrix, 1, isRowMajor, p);
 	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 
-	// bind our buffer, so that glVertexAttribPointer refers
-	// to the correct buffer
-	glBindBuffer(GL_ARRAY_BUFFER, typeBuffer);
-	GLuint loc = glGetAttribLocation(typeProgram, "position");
-	glEnableVertexAttribArray(loc);
-	const void * offset = (const void*)0;
-	glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, offset);
-	GLuint loc2 = glGetAttribLocation(typeProgram, "color");
-	glEnableVertexAttribArray(loc2);
-	offset = (const void*)typePositionSize;
-	glVertexAttribPointer(loc2, 4, GL_FLOAT, GL_FALSE, 0, offset);
-
-	typePipelineProgram->Bind(); // bind the pipeline program
 	glBindVertexArray(typevao); // bind the VAO
-
 	GLint first = 0;
 	GLsizei count = typeNumVertices;
 	glDrawArrays(drawType, first, count);
@@ -504,7 +461,7 @@ void initPipelineProgram()
 	// Points
 	pipelineProgram = new BasicPipelineProgram();
 	pipelineProgram->Init("../openGLHelper-starterCode");
-	pipelineProgram->Bind(); // must do (once) before glUniformMatrix4fv
+	pipelineProgram->Bind();
 
 	// get a handle to the program
 	program = pipelineProgram->GetProgramHandle();
@@ -519,7 +476,7 @@ void initPipelineProgram()
 	// Lines
 	linesPipelineProgram = new BasicPipelineProgram();
 	linesPipelineProgram->Init("../openGLHelper-starterCode");
-	linesPipelineProgram->Bind(); // must do (once) before glUniformMatrix4fv
+	linesPipelineProgram->Bind();
 
 							 // get a handle to the program
 	linesProgram = linesPipelineProgram->GetProgramHandle();
@@ -534,7 +491,7 @@ void initPipelineProgram()
 	// Triangles
 	trianglesPipelineProgram = new BasicPipelineProgram();
 	trianglesPipelineProgram->Init("../openGLHelper-starterCode");
-	trianglesPipelineProgram->Bind(); // must do (once) before glUniformMatrix4fv
+	trianglesPipelineProgram->Bind();
 
 							 // get a handle to the program
 	trianglesProgram = trianglesPipelineProgram->GetProgramHandle();
