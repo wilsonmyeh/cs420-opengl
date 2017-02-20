@@ -1,6 +1,11 @@
 # External Libraries
 external/
 
+# Debug
+Debug/
+Bin/
+*.VC.*
+
 # Compiled Object files
 *.slo
 *.lo
