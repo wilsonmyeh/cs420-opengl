@@ -209,7 +209,7 @@ void reshapeFunc(int w, int h)
   // setup perspective matrix...
   matrix->SetMatrixMode(OpenGLMatrix::Projection);
   matrix->LoadIdentity();
-  matrix->Perspective(15.0f, aspect, 0.01f, 2000.0f);
+  matrix->Perspective(15.0f, aspect, 0.01f, 10000.0f);
   matrix->SetMatrixMode(OpenGLMatrix::ModelView);
   matrix->LoadIdentity();
 }
@@ -231,7 +231,7 @@ void mouseMotionDragFunc(int x, int y)
         landTranslate[0] += mousePosDelta[0] * 0.2f;
         landTranslate[1] -= mousePosDelta[1] * 0.2f;
       }
-      if (middleMouseButton)
+      if (rightMouseButton)
       {
         // control z translation via the middle mouse button
         landTranslate[2] += mousePosDelta[1] * 0.2f;
@@ -246,7 +246,7 @@ void mouseMotionDragFunc(int x, int y)
         landRotate[0] += mousePosDelta[1];
         landRotate[1] += mousePosDelta[0];
       }
-      if (middleMouseButton)
+      if (rightMouseButton)
       {
         // control z rotation via the middle mouse button
         landRotate[2] += mousePosDelta[1];
@@ -261,7 +261,7 @@ void mouseMotionDragFunc(int x, int y)
         landScale[0] *= 1.0f + mousePosDelta[0] * 0.01f;
         landScale[1] *= 1.0f - mousePosDelta[1] * 0.01f;
       }
-      if (middleMouseButton)
+      if (rightMouseButton)
       {
         // control z scaling via the middle mouse button
         landScale[2] *= 1.0f - mousePosDelta[1] * 0.01f;

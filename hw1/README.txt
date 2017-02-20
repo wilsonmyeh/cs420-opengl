@@ -7,7 +7,7 @@ To switch between rendering styles, press on the keyboard:
 	'l' => lines (wireframe)
 	't' => triangles (solid)
 
-Click and drag (use middle-mouse click for z-axis)
+Click and drag (use right-click for z-axis)
 	'Rotate' => No Modifier Key
 	'Scale' => Shift
 	'Translate' => Control
