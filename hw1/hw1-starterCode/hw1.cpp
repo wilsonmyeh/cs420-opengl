@@ -50,6 +50,10 @@ int windowHeight = 720;
 char windowTitle[512] = "CSCI 420 homework I";
 
 // BEGIN ADDITIONS
+bool recording;
+bool secondFrame;
+int frameNum;
+
 char renderType;
 OpenGLMatrix *matrix;
 
@@ -65,12 +69,6 @@ GLint h_modelViewMatrix, h_projectionMatrix;
 GLuint vao;
 GLuint linesvao;
 GLuint trianglesvao;
-
-// Quad Stuff
-//GLfloat theta[3] = { 0.0, 0.0, 0.0 };
-//GLfloat delta = 2.0;
-//GLint axis = 2;
-//GLint spin = 1;
 
 // Vertices
 int numVertices;
@@ -109,17 +107,6 @@ void saveScreenshot(const char * filename)
   delete [] screenshotData;
 }
 
-//void spinQuad()
-//{
-//	// spin the quad delta degrees around the selected axis
-//	if (spin)
-//		theta[axis] += delta;
-//	if (theta[axis] > 360.0)
-//		theta[axis] -= 360.0;
-//	// display result (do not forget this!)
-//	glutPostRedisplay();
-//}
-
 void displayFunc()
 {
   // render some stuff...
@@ -131,6 +118,11 @@ void displayFunc()
 	matrix->LoadIdentity();
 	matrix->LookAt( heightmapImage->getHeight()*2.0f, heightmapImage->getHeight()*2.0f, heightmapImage->getWidth()*-3.0f,
 					heightmapImage->getHeight()*0.5f, 0.0f, heightmapImage->getWidth()*-0.5f, 0.0f, 1.0f, 0.0f);
+	matrix->Rotate(landRotate[0], 1.0, 0.0, 0.0);
+	matrix->Rotate(landRotate[1], 0.0, 1.0, 0.0);
+	matrix->Rotate(landRotate[2], 0.0, 0.0, 1.0);
+	matrix->Translate(landTranslate[0], landTranslate[1], landTranslate[2]);
+	matrix->Scale(landScale[0], landScale[1], landScale[2]);
 
 	GLuint typevao;
 	int typeNumVertices;
@@ -179,11 +171,6 @@ void displayFunc()
 	glDrawArrays(drawType, first, count);
 	glBindVertexArray(0); // unbind the VAO
 
-	//matrix->Rotate(theta[0], 1.0, 0.0, 0.0);
-	//matrix->Rotate(theta[1], 0.0, 1.0, 0.0);
-	//matrix->Rotate(theta[2], 0.0, 0.0, 1.0);
-	//renderQuad();
-
 	glutSwapBuffers();
 }
 
@@ -192,6 +179,23 @@ void idleFunc()
   // do some stuff... 
 
   // for example, here, you can save the screenshots to disk (to make the animation)
+  // Check if recording, capture every other frame (30 fps)
+  if (recording) {
+	  secondFrame = !secondFrame;
+	  if (secondFrame) {
+		  // Pad zeros to filename
+		  std::string filename = std::to_string(frameNum) + ".jpg";
+		  if (frameNum < 100) {
+			  filename = "0" + filename;
+		  }
+		  if (frameNum < 10) {
+			  filename = "0" + filename;
+		  }
+		  filename = "Recording/" + filename;
+		  saveScreenshot(filename.c_str());
+		  ++frameNum;
+	  }
+  }
 
   // make the screen update 
   glutPostRedisplay();
@@ -205,7 +209,7 @@ void reshapeFunc(int w, int h)
   // setup perspective matrix...
   matrix->SetMatrixMode(OpenGLMatrix::Projection);
   matrix->LoadIdentity();
-  matrix->Perspective(15.0f, aspect, 0.01f, 1000.0f); // Hard coded aspect ratio for milestone
+  matrix->Perspective(15.0f, aspect, 0.01f, 2000.0f);
   matrix->SetMatrixMode(OpenGLMatrix::ModelView);
   matrix->LoadIdentity();
 }
@@ -224,13 +228,13 @@ void mouseMotionDragFunc(int x, int y)
       if (leftMouseButton)
       {
         // control x,y translation via the left mouse button
-        landTranslate[0] += mousePosDelta[0] * 0.01f;
-        landTranslate[1] -= mousePosDelta[1] * 0.01f;
+        landTranslate[0] += mousePosDelta[0] * 0.2f;
+        landTranslate[1] -= mousePosDelta[1] * 0.2f;
       }
       if (middleMouseButton)
       {
         // control z translation via the middle mouse button
-        landTranslate[2] += mousePosDelta[1] * 0.01f;
+        landTranslate[2] += mousePosDelta[1] * 0.2f;
       }
       break;
 
@@ -329,7 +333,13 @@ void keyboardFunc(unsigned char key, int x, int y)
     break;
 
     case ' ':
-      cout << "You pressed the spacebar." << endl;
+	  if (recording) {
+		  cout << "Stopped recording." << endl;
+	  }
+	  else {
+		  cout << "Started recording..." << endl;
+	  }
+	  recording = !recording;
     break;
 
     case 'x':
@@ -544,9 +554,9 @@ void initScene(int argc, char *argv[])
 		  positions[posInd + 2] = (float)-j; // Column
 		  posInd += 3;
 
-		  colors[colorInd] = 0; // Red
+		  colors[colorInd] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Red
 		  colors[colorInd + 1] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Green
-		  colors[colorInd + 2] = 0; // Blue
+		  colors[colorInd + 2] = 1.0f; // Blue
 		  colors[colorInd + 3] = 1; // Alpha Channel
 		  colorInd += 4;
 
@@ -565,15 +575,15 @@ void initScene(int argc, char *argv[])
 			  linePosInd += 3;
 
 			  // Colors
-			  lineColors[lineColorInd] = 0; // Red
+			  lineColors[lineColorInd] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Red
 			  lineColors[lineColorInd + 1] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Green
-			  lineColors[lineColorInd + 2] = 0; // Blue
+			  lineColors[lineColorInd + 2] = 1.0f; // Blue
 			  lineColors[lineColorInd + 3] = 1; // Alpha Channel
 			  lineColorInd += 4;
 
-			  lineColors[lineColorInd] = 0; // Red
+			  lineColors[lineColorInd] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Red
 			  lineColors[lineColorInd + 1] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Green
-			  lineColors[lineColorInd + 2] = 0; // Blue
+			  lineColors[lineColorInd + 2] = 1.0f; // Blue
 			  lineColors[lineColorInd + 3] = 1; // Alpha Channel
 			  lineColorInd += 4;
 		  }
@@ -591,15 +601,15 @@ void initScene(int argc, char *argv[])
 			  linePosInd += 3;
 
 			  // Colors
-			  lineColors[lineColorInd] = 0; // Red
+			  lineColors[lineColorInd] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Red
 			  lineColors[lineColorInd + 1] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Green
-			  lineColors[lineColorInd + 2] = 0; // Blue
+			  lineColors[lineColorInd + 2] = 1.0f; // Blue
 			  lineColors[lineColorInd + 3] = 1; // Alpha Channel
 			  lineColorInd += 4;
 
-			  lineColors[lineColorInd] = 0; // Red
+			  lineColors[lineColorInd] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Red
 			  lineColors[lineColorInd + 1] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Green
-			  lineColors[lineColorInd + 2] = 0; // Blue
+			  lineColors[lineColorInd + 2] = 1.0f; // Blue
 			  lineColors[lineColorInd + 3] = 1; // Alpha Channel
 			  lineColorInd += 4;
 		  }
@@ -639,48 +649,41 @@ void initScene(int argc, char *argv[])
 			  triPositions[triPosInd + 2] = (float)-j; // Column
 			  triPosInd += 3;
 
-			  //If have constant channels forever
-			  //for (int offi = 0; offi < 24; offi += 4) {
-				 // triColors[triColorInd + offi] = 0; // Red
-				 // triColors[triColorInd + offi + 2] = 0; // Blue
-				 // triColors[triColorInd + offi + 3] = 1; // Alpha Channel
-			  //}
-
 			  // Top-left triangle colors
-			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Red
 			  triColors[triColorInd + 1] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Green
-			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 2] = 1.0f; // Blue
 			  triColors[triColorInd + 3] = 1; // Alpha Channel
 			  triColorInd += 4;
 
-			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Red
 			  triColors[triColorInd + 1] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Green
-			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 2] = 1.0; // Blue
 			  triColors[triColorInd + 3] = 1; // Alpha Channel
 			  triColorInd += 4;
 
-			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Red
 			  triColors[triColorInd + 1] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Green
-			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 2] = 1.0f; // Blue
 			  triColors[triColorInd + 3] = 1; // Alpha Channel
 			  triColorInd += 4;
 
 			  // Bottom-right triangle colors
-			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd] = heightmapImage->getPixel(i + 1, j + 1, 0) / 255.0f; // Red
 			  triColors[triColorInd + 1] = heightmapImage->getPixel(i + 1, j + 1, 0) / 255.0f; // Green
-			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 2] = 1.0f; // Blue
 			  triColors[triColorInd + 3] = 1; // Alpha Channel
 			  triColorInd += 4;
 
-			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Red
 			  triColors[triColorInd + 1] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Green
-			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 2] = 1.0f; // Blue
 			  triColors[triColorInd + 3] = 1; // Alpha Channel
 			  triColorInd += 4;
 
-			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Red
 			  triColors[triColorInd + 1] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Green
-			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 2] = 1.0f; // Blue
 			  triColors[triColorInd + 3] = 1; // Alpha Channel
 			  triColorInd += 4;
 		  }
@@ -688,6 +691,9 @@ void initScene(int argc, char *argv[])
   }
 
   renderType = 'p';
+  recording = false;
+  secondFrame = false;
+  frameNum = 0;
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   glEnable(GL_DEPTH_TEST);
   matrix = new OpenGLMatrix();
