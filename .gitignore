@@ -6,6 +6,9 @@ Debug/
 Bin/
 *.VC.*
 
+# Images
+Recording/
+
 # Compiled Object files
 *.slo
 *.lo
