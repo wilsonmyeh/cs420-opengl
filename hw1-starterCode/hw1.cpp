@@ -50,14 +50,29 @@ int windowHeight = 720;
 char windowTitle[512] = "CSCI 420 homework I";
 
 // BEGIN ADDITIONS
-GLuint buffer;
+char renderType;
 OpenGLMatrix *matrix;
 
-// Shader and uniform variables stuff
+GLuint buffer;
+GLuint linesBuffer;
+GLuint trianglesBuffer;
+
+// Shader and uniform variables
 BasicPipelineProgram *pipelineProgram;
+BasicPipelineProgram *linesPipelineProgram;
+BasicPipelineProgram *trianglesPipelineProgram;
+
 GLint program;
+GLint linesProgram;
+GLint trianglesProgram;
+
 GLint h_modelViewMatrix, h_projectionMatrix;
+GLint lines_h_modelViewMatrix, lines_h_projectionMatrix;
+GLint triangles_h_modelViewMatrix, triangles_h_projectionMatrix;
+
 GLuint vao;
+GLuint linesvao;
+GLuint trianglesvao;
 
 // Quad Stuff
 //GLfloat theta[3] = { 0.0, 0.0, 0.0 };
@@ -65,16 +80,24 @@ GLuint vao;
 //GLint axis = 2;
 //GLint spin = 1;
 
-// Triangle specifications
-int numVertices = 3;
-float positions[9] =
-{0, 0, -1,
- 1, 0, -1,
- 0, 1, -1 };
-float colors[12] =
-{1, 0, 0, 1,	// Red
- 0, 1, 0, 1,	// Green
- 0, 0, 1, 1 };	// Blue
+// Vertices
+int numVertices;
+float* positions;
+float* colors;
+int positionSize;
+int colorSize;
+
+int numLineVertices;
+float* linePositions;
+float* lineColors;
+int linePositionSize;
+int lineColorSize;
+
+int numTriVertices;
+float* triPositions;
+float* triColors;
+int triPositionSize;
+int triColorSize;
 // END ADDITIONS
 
 ImageIO * heightmapImage;
@@ -112,56 +135,112 @@ void saveScreenshot(const char * filename)
 //	glDrawArrays(GL_TRIANGLES, first, numberOfVertices);
 //}
 
-void bindProgram()
-{
-	// bind our buffer, so that glVertexAttribPointer refers
-	// to the correct buffer
-	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-	GLuint loc = glGetAttribLocation(program, "position");
-	glEnableVertexAttribArray(loc);
-	const void * offset = (const void*)0;
-	glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, offset);
-	GLuint loc2 = glGetAttribLocation(program, "color");
-	glEnableVertexAttribArray(loc2);
-	offset = (const void*) sizeof(positions);
-	glVertexAttribPointer(loc2, 4, GL_FLOAT, GL_FALSE, 0, offset);
-
-	// write projection and modelview matrix to shader
-	GLboolean isRowMajor = GL_FALSE;
-
-	float m[16]; // column-major
-	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
-	matrix->GetMatrix(m);
-	// upload m to the GPU
-	glUniformMatrix4fv(h_modelViewMatrix, 1, isRowMajor, m);
-
-	float p[16]; // column-major
-	matrix->SetMatrixMode(OpenGLMatrix::Projection);
-	matrix->GetMatrix(p);
-	// upload p to the GPU
-	glUniformMatrix4fv(h_projectionMatrix, 1, isRowMajor, p);
-	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
-}
-
 void displayFunc()
 {
   // render some stuff...
 	glClear(GL_COLOR_BUFFER_BIT |
 		GL_DEPTH_BUFFER_BIT);
+
+	// Compute the ModelView matrix
 	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 	matrix->LoadIdentity();
-	double zStudent = 3 + (4780838615.0 / 10000000000.0);
-	matrix->LookAt(0, 0, zStudent, 0, 0, -1, 0, 1, 0);
+	matrix->LookAt( heightmapImage->getHeight()*2.0f, heightmapImage->getHeight()*2.0f, heightmapImage->getWidth()*-3.0f,
+					heightmapImage->getHeight()*0.5f, 0.0f, heightmapImage->getWidth()*-0.5f, 0.0f, 1.0f, 0.0f);
 
-	bindProgram();
+	GLint typeModelViewMatrix;
+	GLint typeProjectionMatrix;
 
-	pipelineProgram->Bind(); // bind the pipeline program
-	glBindVertexArray(vao); // bind the VAO
+	GLuint typeBuffer;
+	GLint typeProgram;
+	int typePositionSize;
+
+	BasicPipelineProgram *typePipelineProgram;
+	GLuint typevao;
+	int typeNumVertices;
+
+	GLuint drawType;
+
+	switch (renderType)
+	{
+	case 'p':
+		typeModelViewMatrix = h_modelViewMatrix;
+		typeProjectionMatrix = h_projectionMatrix;
+
+		typeBuffer = buffer;
+		typeProgram = program;
+		typePositionSize = positionSize;
+
+		typePipelineProgram = pipelineProgram;
+		typevao = vao;
+		typeNumVertices = numVertices;
+
+		drawType = GL_POINTS;
+		break;
+
+	case 'l':
+		typeModelViewMatrix = lines_h_modelViewMatrix;
+		typeProjectionMatrix = lines_h_projectionMatrix;
+
+		typeBuffer = linesBuffer;
+		typeProgram = linesProgram;
+		typePositionSize = linePositionSize;
+
+		typePipelineProgram = linesPipelineProgram;
+		typevao = linesvao;
+		typeNumVertices = numLineVertices;
+
+		drawType = GL_LINES;
+		break;
+
+	case 't':
+		typeModelViewMatrix = triangles_h_modelViewMatrix;
+		typeProjectionMatrix = triangles_h_projectionMatrix;
+
+		typeBuffer = trianglesBuffer;
+		typeProgram = trianglesProgram;
+		typePositionSize = triPositionSize;
+
+		typePipelineProgram = trianglesPipelineProgram;
+		typevao = trianglesvao;
+		typeNumVertices = numTriVertices;
+
+		drawType = GL_TRIANGLES;
+		break;
+	}
+
+	// write projection and modelview matrix to shader
+	GLboolean isRowMajor = GL_FALSE;
+
+	float m[16]; // column-major
+	matrix->GetMatrix(m);
+	// upload m to the GPU
+	glUniformMatrix4fv(typeModelViewMatrix, 1, isRowMajor, m);
+
+	float p[16]; // column-major
+	matrix->SetMatrixMode(OpenGLMatrix::Projection);
+	matrix->GetMatrix(p);
+	// upload p to the GPU
+	glUniformMatrix4fv(typeProjectionMatrix, 1, isRowMajor, p);
+	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
+
+	// bind our buffer, so that glVertexAttribPointer refers
+	// to the correct buffer
+	glBindBuffer(GL_ARRAY_BUFFER, typeBuffer);
+	GLuint loc = glGetAttribLocation(typeProgram, "position");
+	glEnableVertexAttribArray(loc);
+	const void * offset = (const void*)0;
+	glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, offset);
+	GLuint loc2 = glGetAttribLocation(typeProgram, "color");
+	glEnableVertexAttribArray(loc2);
+	offset = (const void*)typePositionSize;
+	glVertexAttribPointer(loc2, 4, GL_FLOAT, GL_FALSE, 0, offset);
+
+	typePipelineProgram->Bind(); // bind the pipeline program
+	glBindVertexArray(typevao); // bind the VAO
 
 	GLint first = 0;
-	GLsizei count = numVertices;
-	glDrawArrays(GL_TRIANGLES, first, count);
-
+	GLsizei count = typeNumVertices;
+	glDrawArrays(drawType, first, count);
 	glBindVertexArray(0); // unbind the VAO
 
 	//matrix->Rotate(theta[0], 1.0, 0.0, 0.0);
@@ -190,7 +269,7 @@ void reshapeFunc(int w, int h)
   // setup perspective matrix...
   matrix->SetMatrixMode(OpenGLMatrix::Projection);
   matrix->LoadIdentity();
-  matrix->Perspective(45.0f, 1280.0f/720.0f, 0.01f, 1000.0f); // Hard coded aspect ratio for milestone
+  matrix->Perspective(15.0f, aspect, 0.01f, 1000.0f); // Hard coded aspect ratio for milestone
   matrix->SetMatrixMode(OpenGLMatrix::ModelView);
   matrix->LoadIdentity();
 }
@@ -321,29 +400,98 @@ void keyboardFunc(unsigned char key, int x, int y)
       // take a screenshot
       saveScreenshot("screenshot.jpg");
     break;
+
+	case 'p':
+	  // points view
+	  renderType = 'p';
+	break;
+	
+	case 'l':
+	  // lines (wireframe) view
+	  renderType = 'l';
+	break;
+
+	case 't':
+	  // solid triangles view
+	  renderType = 't';
+	break;
   }
 }
 
 void initVAO()
 {
+	// Triangles
+	// create the vao
+	glGenVertexArrays(1, &trianglesvao);
+	glBindVertexArray(trianglesvao); // bind the VAO
+
+	// bind the VBO “buffer” (must be previously created)
+	glBindBuffer(GL_ARRAY_BUFFER, trianglesBuffer);
+	// get location index of the “position” shader variable
+	GLuint loc = glGetAttribLocation(trianglesProgram, "position");
+	glEnableVertexAttribArray(loc); // enable the “position” attribute
+	const void * offset = (const void*)0;
+	GLsizei stride = 0;
+	GLboolean normalized = GL_FALSE;
+	// set the layout of the “position” attribute data
+	glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
+
+	// get the location index of the “color” shader variable
+	loc = glGetAttribLocation(trianglesProgram, "color");
+	glEnableVertexAttribArray(loc); // enable the “color” attribute
+	offset = (const void*) triPositionSize;
+	stride = 0;
+	normalized = GL_FALSE;
+	// set the layout of the “color” attribute data
+	glVertexAttribPointer(loc, 4, GL_FLOAT, normalized, stride, offset);
+	glBindVertexArray(0); // unbind the VAO
+
+	// Lines
+	// create the vao
+	glGenVertexArrays(1, &linesvao);
+	glBindVertexArray(linesvao); // bind the VAO
+
+							// bind the VBO “buffer” (must be previously created)
+	glBindBuffer(GL_ARRAY_BUFFER, linesBuffer);
+	// get location index of the “position” shader variable
+	loc = glGetAttribLocation(linesProgram, "position");
+	glEnableVertexAttribArray(loc); // enable the “position” attribute
+	offset = (const void*)0;
+	stride = 0;
+	normalized = GL_FALSE;
+	// set the layout of the “position” attribute data
+	glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
+
+	// get the location index of the “color” shader variable
+	loc = glGetAttribLocation(linesProgram, "color");
+	glEnableVertexAttribArray(loc); // enable the “color” attribute
+	offset = (const void*)linePositionSize;
+	stride = 0;
+	normalized = GL_FALSE;
+	// set the layout of the “color” attribute data
+	glVertexAttribPointer(loc, 4, GL_FLOAT, normalized, stride, offset);
+	glBindVertexArray(0); // unbind the VAO
+
+	// Points
 	// create the vao
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao); // bind the VAO
 
-	// bind the VBO “buffer” (must be previously created)
+							// bind the VBO “buffer” (must be previously created)
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
 	// get location index of the “position” shader variable
-	GLuint loc = glGetAttribLocation(program, "position");
+	loc = glGetAttribLocation(program, "position");
 	glEnableVertexAttribArray(loc); // enable the “position” attribute
-	const void * offset = (const void*)0; GLsizei stride = 0;
-	GLboolean normalized = GL_FALSE;
+	offset = (const void*)0;
+	stride = 0;
+	normalized = GL_FALSE;
 	// set the layout of the “position” attribute data
 	glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
 
 	// get the location index of the “color” shader variable
 	loc = glGetAttribLocation(program, "color");
 	glEnableVertexAttribArray(loc); // enable the “color” attribute
-	offset = (const void*) sizeof(positions);
+	offset = (const void*)positionSize;
 	stride = 0;
 	normalized = GL_FALSE;
 	// set the layout of the “color” attribute data
@@ -353,6 +501,7 @@ void initVAO()
 
 void initPipelineProgram()
 {
+	// Points
 	pipelineProgram = new BasicPipelineProgram();
 	pipelineProgram->Init("../openGLHelper-starterCode");
 	pipelineProgram->Bind(); // must do (once) before glUniformMatrix4fv
@@ -367,23 +516,79 @@ void initPipelineProgram()
 	// do the same for the projectionMatrix
 	h_projectionMatrix = glGetUniformLocation(program, "projectionMatrix");
 
+	// Lines
+	linesPipelineProgram = new BasicPipelineProgram();
+	linesPipelineProgram->Init("../openGLHelper-starterCode");
+	linesPipelineProgram->Bind(); // must do (once) before glUniformMatrix4fv
+
+							 // get a handle to the program
+	linesProgram = linesPipelineProgram->GetProgramHandle();
+
+	// initialize uniform variable handles
+	// get a handle to the modelViewMatrix shader variable
+	lines_h_modelViewMatrix = glGetUniformLocation(linesProgram, "modelViewMatrix");
+
+	// do the same for the projectionMatrix
+	lines_h_projectionMatrix = glGetUniformLocation(linesProgram, "projectionMatrix");
+
+	// Triangles
+	trianglesPipelineProgram = new BasicPipelineProgram();
+	trianglesPipelineProgram->Init("../openGLHelper-starterCode");
+	trianglesPipelineProgram->Bind(); // must do (once) before glUniformMatrix4fv
+
+							 // get a handle to the program
+	trianglesProgram = trianglesPipelineProgram->GetProgramHandle();
+
+	// initialize uniform variable handles
+	// get a handle to the modelViewMatrix shader variable
+	triangles_h_modelViewMatrix = glGetUniformLocation(trianglesProgram, "modelViewMatrix");
+
+	// do the same for the projectionMatrix
+	triangles_h_projectionMatrix = glGetUniformLocation(trianglesProgram, "projectionMatrix");
+
 	initVAO();
 }
 
 void initVBO()
 {
+	// Init Triangles VBO
+	glGenBuffers(1, &trianglesBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, trianglesBuffer);
+	glBufferData(GL_ARRAY_BUFFER, triPositionSize + triColorSize,
+		NULL, GL_STATIC_DRAW); // init buffer’s size, but don’t assign any data to it
+
+							   // upload position data
+	glBufferSubData(GL_ARRAY_BUFFER, 0,
+		triPositionSize, triPositions);
+
+	// upload color data
+	glBufferSubData(GL_ARRAY_BUFFER, triPositionSize, triColorSize, triColors);
+
+	// Init Lines VBO
+	glGenBuffers(1, &linesBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, linesBuffer);
+	glBufferData(GL_ARRAY_BUFFER, linePositionSize + lineColorSize,
+		NULL, GL_STATIC_DRAW); // init buffer’s size, but don’t assign any data to it
+
+							   // upload position data
+	glBufferSubData(GL_ARRAY_BUFFER, 0,
+		linePositionSize, linePositions);
+
+	// upload color data
+	glBufferSubData(GL_ARRAY_BUFFER, linePositionSize, lineColorSize, lineColors);
+	
+	// Init Points VBO
 	glGenBuffers(1, &buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(colors),
+	glBufferData(GL_ARRAY_BUFFER, positionSize + colorSize,
 		NULL, GL_STATIC_DRAW); // init buffer’s size, but don’t assign any data to it
 
 	// upload position data
 	glBufferSubData(GL_ARRAY_BUFFER, 0,
-		sizeof(positions), positions);
+		positionSize, positions);
 
 	// upload color data
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions),
-		sizeof(colors), colors);
+	glBufferSubData(GL_ARRAY_BUFFER, positionSize, colorSize, colors);
 }
 
 void initScene(int argc, char *argv[])
@@ -396,6 +601,187 @@ void initScene(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  int height = heightmapImage->getHeight();
+  int width = heightmapImage->getWidth();
+  numVertices = height * width;
+  numLineVertices = (4 * (height - 1) * (width - 1)) + (2 * (height + width - 2)); // Four vertices = two lines for each vertex, then fill in the edges
+  numTriVertices = (6 * (height - 1) * (width - 1)); // 6 vertices = two triangles for each quad of four pixels
+  
+  positions = new float[numVertices * 3];
+  linePositions = new float[numLineVertices * 3];
+  triPositions = new float[numTriVertices * 3];
+
+  colors = new float[numVertices * 4];
+  lineColors = new float[numLineVertices * 4];
+  triColors = new float[numTriVertices * 4];
+
+  positionSize = sizeof(float) * numVertices * 3;
+  linePositionSize = sizeof(float) * numLineVertices * 3;
+  triPositionSize = sizeof(float) * numTriVertices * 3;
+
+  colorSize = sizeof(float) * numVertices * 4;
+  lineColorSize = sizeof(float) * numLineVertices * 4;
+  triColorSize = sizeof(float) * numTriVertices * 4;
+
+  float scale = 0.2f;
+  int posInd = 0;
+  int colorInd = 0;
+  int linePosInd = 0;
+  int lineColorInd = 0;
+  int triPosInd = 0;
+  int triColorInd = 0;
+  for (int i = 0; i < height; ++i) {
+	  for (int j = 0; j < width; ++j) {
+		  // Points
+		  positions[posInd] = (float)i; // Row
+		  positions[posInd + 1] = scale * heightmapImage->getPixel(i, j, 0); // Height
+		  positions[posInd + 2] = (float)-j; // Column
+		  posInd += 3;
+
+		  colors[colorInd] = 0; // Red
+		  colors[colorInd + 1] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Green
+		  colors[colorInd + 2] = 0; // Blue
+		  colors[colorInd + 3] = 1; // Alpha Channel
+		  colorInd += 4;
+
+		  // Lines
+		  if (j + 1 < width) {
+			  // Draw horizontal line
+			  // Positions
+			  linePositions[linePosInd] = (float)i; // Row
+			  linePositions[linePosInd + 1] = scale * heightmapImage->getPixel(i, j, 0); // Height
+			  linePositions[linePosInd + 2] = (float)-j; // Column
+			  linePosInd += 3;
+
+			  linePositions[linePosInd] = (float)i; // Row
+			  linePositions[linePosInd + 1] = scale * heightmapImage->getPixel(i, j + 1, 0); // Height
+			  linePositions[linePosInd + 2] = (float)-(j + 1); // Column
+			  linePosInd += 3;
+
+			  // Colors
+			  lineColors[lineColorInd] = 0; // Red
+			  lineColors[lineColorInd + 1] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Green
+			  lineColors[lineColorInd + 2] = 0; // Blue
+			  lineColors[lineColorInd + 3] = 1; // Alpha Channel
+			  lineColorInd += 4;
+
+			  lineColors[lineColorInd] = 0; // Red
+			  lineColors[lineColorInd + 1] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Green
+			  lineColors[lineColorInd + 2] = 0; // Blue
+			  lineColors[lineColorInd + 3] = 1; // Alpha Channel
+			  lineColorInd += 4;
+		  }
+		  if (i + 1 < height) {
+			  // Draw vertical line
+			  // Positions
+			  linePositions[linePosInd] = (float)i; // Row
+			  linePositions[linePosInd + 1] = scale * heightmapImage->getPixel(i, j, 0); // Height
+			  linePositions[linePosInd + 2] = (float)-j; // Column
+			  linePosInd += 3;
+
+			  linePositions[linePosInd] = (float)i + 1; // Row
+			  linePositions[linePosInd + 1] = scale * heightmapImage->getPixel(i + 1, j, 0); // Height
+			  linePositions[linePosInd + 2] = (float)-j; // Column
+			  linePosInd += 3;
+
+			  // Colors
+			  lineColors[lineColorInd] = 0; // Red
+			  lineColors[lineColorInd + 1] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Green
+			  lineColors[lineColorInd + 2] = 0; // Blue
+			  lineColors[lineColorInd + 3] = 1; // Alpha Channel
+			  lineColorInd += 4;
+
+			  lineColors[lineColorInd] = 0; // Red
+			  lineColors[lineColorInd + 1] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Green
+			  lineColors[lineColorInd + 2] = 0; // Blue
+			  lineColors[lineColorInd + 3] = 1; // Alpha Channel
+			  lineColorInd += 4;
+		  }
+
+		  // Triangles
+		  if (i + 1 < height && j + 1 < width) {
+			  // Going counter-clockwise is important I read somewhere?
+			  // Top-left triangle positions
+			  triPositions[triPosInd] = (float)i; // Row
+			  triPositions[triPosInd + 1] = scale * heightmapImage->getPixel(i, j, 0); // Height
+			  triPositions[triPosInd + 2] = (float)-j; // Column
+			  triPosInd += 3;
+
+			  triPositions[triPosInd] = (float)i + 1; // Row
+			  triPositions[triPosInd + 1] = scale * heightmapImage->getPixel(i + 1, j, 0); // Height
+			  triPositions[triPosInd + 2] = (float)-j; // Column
+			  triPosInd += 3;
+
+			  triPositions[triPosInd] = (float)i; // Row
+			  triPositions[triPosInd + 1] = scale * heightmapImage->getPixel(i, j + 1, 0); // Height
+			  triPositions[triPosInd + 2] = (float)-(j + 1); // Column
+			  triPosInd += 3;
+
+			  // Bottom-right triangle positions
+			  triPositions[triPosInd] = (float)i + 1; // Row
+			  triPositions[triPosInd + 1] = scale * heightmapImage->getPixel(i + 1, j + 1, 0); // Height
+			  triPositions[triPosInd + 2] = (float)-(j + 1); // Column
+			  triPosInd += 3;
+
+			  triPositions[triPosInd] = (float)i; // Row
+			  triPositions[triPosInd + 1] = scale * heightmapImage->getPixel(i, j + 1, 0); // Height
+			  triPositions[triPosInd + 2] = (float)-(j + 1); // Column
+			  triPosInd += 3;
+
+			  triPositions[triPosInd] = (float)i + 1; // Row
+			  triPositions[triPosInd + 1] = scale * heightmapImage->getPixel(i + 1, j, 0); // Height
+			  triPositions[triPosInd + 2] = (float)-j; // Column
+			  triPosInd += 3;
+
+			  //If have constant channels forever
+			  //for (int offi = 0; offi < 24; offi += 4) {
+				 // triColors[triColorInd + offi] = 0; // Red
+				 // triColors[triColorInd + offi + 2] = 0; // Blue
+				 // triColors[triColorInd + offi + 3] = 1; // Alpha Channel
+			  //}
+
+			  // Top-left triangle colors
+			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd + 1] = heightmapImage->getPixel(i, j, 0) / 255.0f; // Green
+			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 3] = 1; // Alpha Channel
+			  triColorInd += 4;
+
+			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd + 1] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Green
+			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 3] = 1; // Alpha Channel
+			  triColorInd += 4;
+
+			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd + 1] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Green
+			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 3] = 1; // Alpha Channel
+			  triColorInd += 4;
+
+			  // Bottom-right triangle colors
+			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd + 1] = heightmapImage->getPixel(i + 1, j + 1, 0) / 255.0f; // Green
+			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 3] = 1; // Alpha Channel
+			  triColorInd += 4;
+
+			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd + 1] = heightmapImage->getPixel(i, j + 1, 0) / 255.0f; // Green
+			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 3] = 1; // Alpha Channel
+			  triColorInd += 4;
+
+			  triColors[triColorInd] = 0; // Red
+			  triColors[triColorInd + 1] = heightmapImage->getPixel(i + 1, j, 0) / 255.0f; // Green
+			  triColors[triColorInd + 2] = 0; // Blue
+			  triColors[triColorInd + 3] = 1; // Alpha Channel
+			  triColorInd += 4;
+		  }
+	  }
+  }
+
+  renderType = 'p';
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   glEnable(GL_DEPTH_TEST);
   matrix = new OpenGLMatrix();
