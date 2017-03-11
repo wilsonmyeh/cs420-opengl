@@ -5,6 +5,7 @@ external/
 Debug/
 Bin/
 *.VC.*
+*.suo
 
 # Images
 Recording/
