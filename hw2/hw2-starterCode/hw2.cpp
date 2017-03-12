@@ -75,6 +75,7 @@ struct CameraState
 };
 vector<CameraState> ride;
 unsigned int rideFrame;
+unsigned int velocity;
 
 int windowWidth = 1280;
 int windowHeight = 720;
@@ -211,7 +212,10 @@ void idleFunc()
   // play the ride
   secondFrame = !secondFrame;
   if (rideFrame < ride.size() - 1) {
-	  ++rideFrame;
+	  rideFrame += velocity - ride[rideFrame].point.z + 3;
+	  if (rideFrame >= ride.size() - 1) {
+		  rideFrame = ride.size() - 1;
+	  }
   }
   // for example, here, you can save the screenshots to disk (to make the animation)
   // Check if recording, capture every other frame (30 fps)
@@ -844,6 +848,10 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 		createPlane(pos, uvs, point0 + binormal0, normal0, binormal0);
 		numVertices += 12;
 
+		if (point0.z > velocity) {
+			velocity = point0.z;
+		}
+
 		for (float u = 0; u <= 1; u += .001)
 		{
 			// Calculate the points by stepping u by 0.001
@@ -865,6 +873,10 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 			binormal0 = binormal;
 
 			numVertices += 48;
+
+			if (point0.z > velocity) {
+				velocity = point0.z;
+			}
 		}
 	}
 }
