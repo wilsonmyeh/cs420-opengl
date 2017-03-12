@@ -66,6 +66,16 @@ float landRotate[3] = { 0.0f, 0.0f, 0.0f };
 float landTranslate[3] = { 0.0f, 0.0f, 0.0f };
 float landScale[3] = { 1.0f, 1.0f, 1.0f };
 
+struct CameraState
+{
+	CameraState(glm::vec3 p, glm::vec3 t, glm::vec3 n) : point(p), tangent(t), normal(n) {}
+	glm::vec3 point;
+	glm::vec3 tangent;
+	glm::vec3 normal;
+};
+vector<CameraState> ride;
+unsigned int rideFrame;
+
 int windowWidth = 1280;
 int windowHeight = 720;
 char windowTitle[512] = "CSCI 420 homework I";
@@ -159,7 +169,13 @@ void displayFunc()
 	// Compute the ModelView matrix
 	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 	matrix->LoadIdentity();
-	matrix->LookAt( 100.0, 100.0, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	matrix->LookAt( ride[rideFrame].point.x + 10*ride[rideFrame].normal.x,
+					ride[rideFrame].point.y + 10*ride[rideFrame].normal.y,
+					ride[rideFrame].point.z + 10*ride[rideFrame].normal.z,
+					ride[rideFrame].point.x + 9*ride[rideFrame].normal.x + ride[rideFrame].tangent.x,
+					ride[rideFrame].point.y + 9*ride[rideFrame].normal.y + ride[rideFrame].tangent.y,
+					ride[rideFrame].point.z + 9*ride[rideFrame].normal.z + ride[rideFrame].tangent.z,
+					ride[rideFrame].normal.x, ride[rideFrame].normal.y, ride[rideFrame].normal.z);
 	matrix->Rotate(landRotate[0], 1.0, 0.0, 0.0);
 	matrix->Rotate(landRotate[1], 0.0, 1.0, 0.0);
 	matrix->Rotate(landRotate[2], 0.0, 0.0, 1.0);
@@ -192,25 +208,25 @@ void displayFunc()
 
 void idleFunc()
 {
-  // do some stuff... 
-
+  // play the ride
+  secondFrame = !secondFrame;
+  if (rideFrame < ride.size() - 1) {
+	  ++rideFrame;
+  }
   // for example, here, you can save the screenshots to disk (to make the animation)
   // Check if recording, capture every other frame (30 fps)
-  if (recording) {
-	  secondFrame = !secondFrame;
-	  if (secondFrame) {
-		  // Pad zeros to filename
-		  std::string filename = std::to_string(frameNum) + ".jpg";
-		  if (frameNum < 100) {
-			  filename = "0" + filename;
-		  }
-		  if (frameNum < 10) {
-			  filename = "0" + filename;
-		  }
-		  filename = "Recording/" + filename;
-		  saveScreenshot(filename.c_str());
-		  ++frameNum;
-	  }
+  if (recording && secondFrame) {
+	// Pad zeros to filename
+	std::string filename = std::to_string(frameNum) + ".jpg";
+	if (frameNum < 100) {
+		filename = "0" + filename;
+	}
+	if (frameNum < 10) {
+		filename = "0" + filename;
+	}
+	filename = "Recording/" + filename;
+	saveScreenshot(filename.c_str());
+	++frameNum;
   }
 
   // make the screen update 
@@ -772,6 +788,12 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 		-s, 0, s, 0,
 		0, 1, 0, 0);
 	basis = glm::transpose(basis);
+
+	// Initial normal, binormal
+	bool splineStart = true;
+	glm::vec3 normal0(0, 0, 0);
+	glm::vec3 binormal0(0, 0, 0);
+
 	for (int i = 0; i < splines[0].numControlPoints - 1; ++i) {
 		// point i-1, point -1 = point 0
 		float x1 = (i > 0) ? splines[0].points[i - 1].x : splines[0].points[i].x;
@@ -801,9 +823,15 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 		// Initial tangent, normal, binormal
 		glm::vec4 uvecDerivS(3 * pow(0, 3), 2 * 0, 1, 0);
 		glm::vec3 tangent0 = glm::normalize(uvecDerivS * basis * control);
-		glm::vec3 seedV(1, 0, 0);
-		glm::vec3 normal0 = glm::normalize(glm::cross(tangent0, seedV));
-		glm::vec3 binormal0 = glm::normalize(glm::cross(tangent0, normal0));
+
+		if (splineStart) {
+			glm::vec3 seedV(0, 1, 0);
+			normal0 = glm::normalize(glm::cross(tangent0, seedV));
+			binormal0 = glm::normalize(glm::cross(tangent0, normal0));
+			splineStart = false;
+		}
+
+		ride.push_back(CameraState(point0, tangent0, normal0));
 
 		// Draw start plane to close rail
 		createPlane(pos, uvs, point0, normal0, binormal0);
@@ -815,12 +843,14 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 			glm::vec4 uvec(pow(u, 3), pow(u, 2), u, 1);
 			glm::vec3 point = uvec * basis * control;
 
-			glm::vec4 uvecDeriv(3 * pow(0, 3), 2 * 0, 1, 0);
+			glm::vec4 uvecDeriv(3 * pow(u, 3), 2 * u, 1, 0);
 			glm::vec3 tangent = glm::normalize(uvecDeriv * basis * control);
 			glm::vec3 normal = glm::normalize(glm::cross(binormal0, tangent));
 			glm::vec3 binormal = glm::normalize(glm::cross(tangent, normal));
 
 			createRailSegment(pos, uvs, point0, normal0, binormal0, point, normal, binormal);
+
+			ride.push_back(CameraState(point, tangent, normal));
 
 			point0 = point;
 			normal0 = normal;
@@ -833,15 +863,24 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 		glm::vec4 uvecF(pow(1, 3), pow(1, 2), 1, 1);
 		glm::vec3 point = uvecF * basis * control;
 
-		// Initial tangent, normal, binormal
-		glm::vec4 uvecDeriv(3 * pow(0, 3), 2 * 0, 1, 0);
+		// Final tangent, normal, binormal
+		glm::vec4 uvecDeriv(3 * pow(1, 3), 2 * 1, 1, 0);
 		glm::vec3 tangent = glm::normalize(uvecDeriv * basis * control);
 		glm::vec3 normal = glm::normalize(glm::cross(binormal0, tangent));
 		glm::vec3 binormal = glm::normalize(glm::cross(tangent, normal));
 
-		// Draw start plane to close rail
+		createRailSegment(pos, uvs, point0, normal0, binormal0, point, normal, binormal);
+
+		// Draw end plane to close rail
 		createPlane(pos, uvs, point, normal, binormal);
-		numVertices += 6;
+
+		ride.push_back(CameraState(point, tangent, normal));
+
+		point0 = point;
+		normal0 = normal;
+		binormal0 = binormal;
+
+		numVertices += 30;
 	}
 }
 
@@ -849,17 +888,17 @@ void initGround(int & numVertices, vector<float> & pos, vector<float> & uvs)
 {
 	float posA[3], posB[3], posC[3], uvA[2], uvB[2], uvC[2];
 
-	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
-	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
-	posC[0] = 512.0f; posC[1] = -512.0f; posC[2] = -2.0f;
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -20.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -20.0f;
+	posC[0] = 512.0f; posC[1] = -512.0f; posC[2] = -20.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
 	uvB[0] = 2.0f; uvB[1] = 0.0f;
 	uvC[0] = 0.0f; uvC[1] = 2.0f;
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
 
-	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
-	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
-	posC[0] = 512.0f; posC[1] = 512.0f; posC[2] = -2.0f;
+	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -20.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -20.0f;
+	posC[0] = 512.0f; posC[1] = 512.0f; posC[2] = -20.0f;
 	uvA[0] = 0.0f; uvA[1] = 2.0f;
 	uvB[0] = 2.0f; uvB[1] = 0.0f;
 	uvC[0] = 2.0f; uvC[1] = 2.0f;
@@ -890,14 +929,14 @@ void initSky(int & numVertices, vector<float> & pos, vector<float> & uvs)
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
 
 	// Left
-	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
-	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -20.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -20.0f;
 	posC[0] = -512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
 	uvB[0] = 2.0f; uvB[1] = 0.0f;
 	uvC[0] = 2.0f; uvC[1] = 2.0f;
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
-	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -20.0f;
 	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = 512.0f;
 	posC[0] = -512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
@@ -906,14 +945,14 @@ void initSky(int & numVertices, vector<float> & pos, vector<float> & uvs)
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
 
 	// Right
-	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
-	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
+	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -20.0f;
+	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = -20.0f;
 	posC[0] = 512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
 	uvB[0] = 2.0f; uvB[1] = 0.0f;
 	uvC[0] = 2.0f; uvC[1] = 2.0f;
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
-	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -20.0f;
 	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = 512.0f;
 	posC[0] = 512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
@@ -922,14 +961,14 @@ void initSky(int & numVertices, vector<float> & pos, vector<float> & uvs)
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
 
 	// Front
-	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
-	posB[0] = 512.0f; posB[1] = -512.0f; posB[2] = -2.0f;
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -20.0f;
+	posB[0] = 512.0f; posB[1] = -512.0f; posB[2] = -20.0f;
 	posC[0] = 512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
 	uvB[0] = 2.0f; uvB[1] = 0.0f;
 	uvC[0] = 2.0f; uvC[1] = 2.0f;
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
-	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -20.0f;
 	posB[0] = 512.0f; posB[1] = -512.0f; posB[2] = 512.0f;
 	posC[0] = -512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
@@ -938,14 +977,14 @@ void initSky(int & numVertices, vector<float> & pos, vector<float> & uvs)
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
 
 	// Back
-	posA[0] = -512.0f; posA[1] = 512.0f; posA[2] = -2.0f;
-	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
+	posA[0] = -512.0f; posA[1] = 512.0f; posA[2] = -20.0f;
+	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = -20.0f;
 	posC[0] = 512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
 	uvB[0] = 2.0f; uvB[1] = 0.0f;
 	uvC[0] = 2.0f; uvC[1] = 2.0f;
 	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
-	posA[0] = -512.0f; posA[1] = 512.0f; posA[2] = -2.0f;
+	posA[0] = -512.0f; posA[1] = 512.0f; posA[2] = -20.0f;
 	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = 512.0f;
 	posC[0] = -512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
 	uvA[0] = 0.0f; uvA[1] = 0.0f;
@@ -999,6 +1038,7 @@ void initScene(int argc, char *argv[])
   recording = false;
   secondFrame = false;
   frameNum = 0;
+  rideFrame = 0;
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   glEnable(GL_DEPTH_TEST);
   matrix = new OpenGLMatrix();
