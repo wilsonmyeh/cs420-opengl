@@ -169,12 +169,12 @@ void displayFunc()
 	// Compute the ModelView matrix
 	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 	matrix->LoadIdentity();
-	matrix->LookAt( ride[rideFrame].point.x + 10*ride[rideFrame].normal.x,
-					ride[rideFrame].point.y + 10*ride[rideFrame].normal.y,
-					ride[rideFrame].point.z + 10*ride[rideFrame].normal.z,
-					ride[rideFrame].point.x + 9*ride[rideFrame].normal.x + ride[rideFrame].tangent.x,
-					ride[rideFrame].point.y + 9*ride[rideFrame].normal.y + ride[rideFrame].tangent.y,
-					ride[rideFrame].point.z + 9*ride[rideFrame].normal.z + ride[rideFrame].tangent.z,
+	matrix->LookAt( ride[rideFrame].point.x + ride[rideFrame].normal.x - 2*ride[rideFrame].tangent.x,
+					ride[rideFrame].point.y + ride[rideFrame].normal.y - 2*ride[rideFrame].tangent.y,
+					ride[rideFrame].point.z + ride[rideFrame].normal.z - 2*ride[rideFrame].tangent.y,
+					ride[rideFrame].point.x + 0.5*ride[rideFrame].normal.x + ride[rideFrame].tangent.x,
+					ride[rideFrame].point.y + 0.5*ride[rideFrame].normal.y + ride[rideFrame].tangent.y,
+					ride[rideFrame].point.z + 0.5*ride[rideFrame].normal.z + ride[rideFrame].tangent.z,
 					ride[rideFrame].normal.x, ride[rideFrame].normal.y, ride[rideFrame].normal.z);
 	matrix->Rotate(landRotate[0], 1.0, 0.0, 0.0);
 	matrix->Rotate(landRotate[1], 0.0, 1.0, 0.0);
@@ -588,6 +588,10 @@ void addTriangle(vector<float> & pos, vector<float> & uvs, float posA[3], float 
 void createRailSegment( vector<float> & pos, vector<float> & uvs,
 						glm::vec3 point0, glm::vec3 normal0, glm::vec3 binormal0,
 						glm::vec3 point, glm::vec3 normal, glm::vec3 binormal) {
+	normal0 = 0.25f * normal0;
+	binormal0 = 0.25f * binormal0;
+	normal = 0.25f * normal;
+	binormal = 0.25f * normal;
 	// Top
 	pos.push_back(point0.x + normal0[0] - binormal0[0]);
 	pos.push_back(point0.y + normal0[1] - binormal0[1]);
@@ -666,114 +670,116 @@ void createRailSegment( vector<float> & pos, vector<float> & uvs,
 	pos.push_back(point0.x - normal0[0] - binormal0[0]);
 	pos.push_back(point0.y - normal0[1] - binormal0[1]);
 	pos.push_back(point0.z - normal0[2] - binormal0[2]);
-	uvs.push_back(point0.x - normal0[0] - binormal0[0]);
 	uvs.push_back(point0.y - normal0[1] - binormal0[1]);
+	uvs.push_back(point0.z - normal0[2] - binormal0[2]);
 
 	pos.push_back(point0.x + normal0[0] - binormal0[0]);
 	pos.push_back(point0.y + normal0[1] - binormal0[1]);
 	pos.push_back(point0.z + normal0[2] - binormal0[2]);
-	uvs.push_back(point0.x + normal0[0] - binormal0[0]);
 	uvs.push_back(point0.y + normal0[1] - binormal0[1]);
+	uvs.push_back(point0.z + normal0[2] - binormal0[2]);
 
 	pos.push_back(point.x + normal[0] - binormal[0]);
 	pos.push_back(point.y + normal[1] - binormal[1]);
 	pos.push_back(point.z + normal[2] - binormal[2]);
-	uvs.push_back(point.x + normal[0] - binormal[0]);
 	uvs.push_back(point.y + normal[1] - binormal[1]);
+	uvs.push_back(point.z + normal[2] - binormal[2]);
 
 	pos.push_back(point0.x - normal0[0] - binormal0[0]);
 	pos.push_back(point0.y - normal0[1] - binormal0[1]);
 	pos.push_back(point0.z - normal0[2] - binormal0[2]);
-	uvs.push_back(point0.x - normal0[0] - binormal0[0]);
 	uvs.push_back(point0.y - normal0[1] - binormal0[1]);
+	uvs.push_back(point0.z - normal0[2] - binormal0[2]);
 
 	pos.push_back(point.x + normal[0] - binormal[0]);
 	pos.push_back(point.y + normal[1] - binormal[1]);
 	pos.push_back(point.z + normal[2] - binormal[2]);
-	uvs.push_back(point.x + normal[0] - binormal[0]);
 	uvs.push_back(point.y + normal[1] - binormal[1]);
+	uvs.push_back(point.z + normal[2] - binormal[2]);
 
 	pos.push_back(point.x - normal[0] - binormal[0]);
 	pos.push_back(point.y - normal[1] - binormal[1]);
 	pos.push_back(point.z - normal[2] - binormal[2]);
-	uvs.push_back(point.x - normal[0] - binormal[0]);
 	uvs.push_back(point.y - normal[1] - binormal[1]);
+	uvs.push_back(point.z - normal[2] - binormal[2]);
 
 	// Right
 	pos.push_back(point0.x - normal0[0] + binormal0[0]);
 	pos.push_back(point0.y - normal0[1] + binormal0[1]);
 	pos.push_back(point0.z - normal0[2] + binormal0[2]);
-	uvs.push_back(point0.x - normal0[0] + binormal0[0]);
 	uvs.push_back(point0.y - normal0[1] + binormal0[1]);
+	uvs.push_back(point0.z - normal0[2] + binormal0[2]);
 
 	pos.push_back(point0.x + normal0[0] + binormal0[0]);
 	pos.push_back(point0.y + normal0[1] + binormal0[1]);
 	pos.push_back(point0.z + normal0[2] + binormal0[2]);
-	uvs.push_back(point0.x + normal0[0] + binormal0[0]);
 	uvs.push_back(point0.y + normal0[1] + binormal0[1]);
+	uvs.push_back(point0.z + normal0[2] + binormal0[2]);
 
 	pos.push_back(point.x + normal[0] + binormal[0]);
 	pos.push_back(point.y + normal[1] + binormal[1]);
 	pos.push_back(point.z + normal[2] + binormal[2]);
-	uvs.push_back(point.x + normal[0] + binormal[0]);
 	uvs.push_back(point.y + normal[1] + binormal[1]);
+	uvs.push_back(point.z + normal[2] + binormal[2]);
 
 	pos.push_back(point0.x - normal0[0] + binormal0[0]);
 	pos.push_back(point0.y - normal0[1] + binormal0[1]);
 	pos.push_back(point0.z - normal0[2] + binormal0[2]);
-	uvs.push_back(point0.x - normal0[0] + binormal0[0]);
 	uvs.push_back(point0.y - normal0[1] + binormal0[1]);
+	uvs.push_back(point0.z - normal0[2] + binormal0[2]);
 
 	pos.push_back(point.x + normal[0] + binormal[0]);
 	pos.push_back(point.y + normal[1] + binormal[1]);
 	pos.push_back(point.z + normal[2] + binormal[2]);
-	uvs.push_back(point.x + normal[0] + binormal[0]);
 	uvs.push_back(point.y + normal[1] + binormal[1]);
+	uvs.push_back(point.z + normal[2] + binormal[2]);
 
 	pos.push_back(point.x - normal[0] + binormal[0]);
 	pos.push_back(point.y - normal[1] + binormal[1]);
 	pos.push_back(point.z - normal[2] + binormal[2]);
-	uvs.push_back(point.x - normal[0] + binormal[0]);
 	uvs.push_back(point.y - normal[1] + binormal[1]);
+	uvs.push_back(point.z - normal[2] + binormal[2]);
 }
 
 void createPlane(vector<float> & pos, vector<float> & uvs,
 				 glm::vec3 point, glm::vec3 normal, glm::vec3 binormal) {
+	normal = 0.25f * normal;
+	binormal = 0.25f * binormal;
 	pos.push_back(point.x - normal[0] - binormal[0]);
 	pos.push_back(point.y - normal[1] - binormal[1]);
 	pos.push_back(point.z - normal[2] - binormal[2]);
 	uvs.push_back(point.x - normal[0] - binormal[0]);
-	uvs.push_back(point.y - normal[1] - binormal[1]);
+	uvs.push_back(point.z - normal[2] - binormal[2]);
 
 	pos.push_back(point.x - normal[0] + binormal[0]);
 	pos.push_back(point.y - normal[1] + binormal[1]);
 	pos.push_back(point.z - normal[2] + binormal[2]);
 	uvs.push_back(point.x - normal[0] + binormal[0]);
-	uvs.push_back(point.y - normal[1] + binormal[1]);
+	uvs.push_back(point.z - normal[2] + binormal[2]);
 
 	pos.push_back(point.x + normal[0] - binormal[0]);
 	pos.push_back(point.y + normal[1] - binormal[1]);
 	pos.push_back(point.z + normal[2] - binormal[2]);
 	uvs.push_back(point.x + normal[0] - binormal[0]);
-	uvs.push_back(point.y + normal[1] - binormal[1]);
+	uvs.push_back(point.z + normal[2] - binormal[2]);
 
 	pos.push_back(point.x - normal[0] + binormal[0]);
 	pos.push_back(point.y - normal[1] + binormal[1]);
 	pos.push_back(point.z - normal[2] + binormal[2]);
 	uvs.push_back(point.x - normal[0] + binormal[0]);
-	uvs.push_back(point.y - normal[1] + binormal[1]);
+	uvs.push_back(point.z - normal[2] + binormal[2]);
 
 	pos.push_back(point.x + normal[0] + binormal[0]);
 	pos.push_back(point.y + normal[1] + binormal[1]);
 	pos.push_back(point.z + normal[2] + binormal[2]);
 	uvs.push_back(point.x + normal[0] + binormal[0]);
-	uvs.push_back(point.y + normal[1] + binormal[1]);
+	uvs.push_back(point.z + normal[2] + binormal[2]);
 
 	pos.push_back(point.x + normal[0] - binormal[0]);
 	pos.push_back(point.y + normal[1] - binormal[1]);
 	pos.push_back(point.z + normal[2] - binormal[2]);
 	uvs.push_back(point.x + normal[0] - binormal[0]);
-	uvs.push_back(point.y + normal[1] - binormal[1]);
+	uvs.push_back(point.z + normal[2] - binormal[2]);
 }
 
 void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
@@ -834,10 +840,11 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 		ride.push_back(CameraState(point0, tangent0, normal0));
 
 		// Draw start plane to close rail
-		createPlane(pos, uvs, point0, normal0, binormal0);
-		numVertices += 6;
+		createPlane(pos, uvs, point0 - binormal0, normal0, binormal0);
+		createPlane(pos, uvs, point0 + binormal0, normal0, binormal0);
+		numVertices += 12;
 
-		for (float u = 0; u < 1; u += .001)
+		for (float u = 0; u <= 1; u += .001)
 		{
 			// Calculate the points by stepping u by 0.001
 			glm::vec4 uvec(pow(u, 3), pow(u, 2), u, 1);
@@ -848,7 +855,8 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 			glm::vec3 normal = glm::normalize(glm::cross(binormal0, tangent));
 			glm::vec3 binormal = glm::normalize(glm::cross(tangent, normal));
 
-			createRailSegment(pos, uvs, point0, normal0, binormal0, point, normal, binormal);
+			createRailSegment(pos, uvs, point0 - binormal0, normal0, binormal0, point - binormal, normal, binormal);
+			createRailSegment(pos, uvs, point0 + binormal0, normal0, binormal0, point + binormal, normal, binormal);
 
 			ride.push_back(CameraState(point, tangent, normal));
 
@@ -856,31 +864,8 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 			normal0 = normal;
 			binormal0 = binormal;
 
-			numVertices += 24;
+			numVertices += 48;
 		}
-
-		// Final point
-		glm::vec4 uvecF(pow(1, 3), pow(1, 2), 1, 1);
-		glm::vec3 point = uvecF * basis * control;
-
-		// Final tangent, normal, binormal
-		glm::vec4 uvecDeriv(3 * pow(1, 3), 2 * 1, 1, 0);
-		glm::vec3 tangent = glm::normalize(uvecDeriv * basis * control);
-		glm::vec3 normal = glm::normalize(glm::cross(binormal0, tangent));
-		glm::vec3 binormal = glm::normalize(glm::cross(tangent, normal));
-
-		createRailSegment(pos, uvs, point0, normal0, binormal0, point, normal, binormal);
-
-		// Draw end plane to close rail
-		createPlane(pos, uvs, point, normal, binormal);
-
-		ride.push_back(CameraState(point, tangent, normal));
-
-		point0 = point;
-		normal0 = normal;
-		binormal0 = binormal;
-
-		numVertices += 30;
 	}
 }
 
@@ -1026,7 +1011,7 @@ void initScene(int argc, char *argv[])
   // init textures
   int code = initTexture("textures/metal.jpg", splineTexHandle);
   code = code | initTexture("textures/ground.jpg", groundTexHandle);
-  code = code | initTexture("textures/dead.jpg", skyTexHandle);
+  code = code | initTexture("textures/sky.jpg", skyTexHandle);
   if (code != 0)
   {
 	  // At least one of the textures failed to load
