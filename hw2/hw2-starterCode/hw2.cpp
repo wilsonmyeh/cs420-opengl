@@ -159,7 +159,7 @@ void displayFunc()
 	// Compute the ModelView matrix
 	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 	matrix->LoadIdentity();
-	matrix->LookAt( 100.0f, 100.0f, 100.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+	matrix->LookAt( 100.0, 100.0, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 	matrix->Rotate(landRotate[0], 1.0, 0.0, 0.0);
 	matrix->Rotate(landRotate[1], 0.0, 1.0, 0.0);
 	matrix->Rotate(landRotate[2], 0.0, 0.0, 1.0);
@@ -183,7 +183,7 @@ void displayFunc()
 	glUniformMatrix4fv(h_projectionMatrix, 1, isRowMajor, p);
 	matrix->SetMatrixMode(OpenGLMatrix::ModelView);
 
-	drawObject(splineNumVertices, splinevao, splineTexHandle, GL_LINES);
+	drawObject(splineNumVertices, splinevao, splineTexHandle, GL_TRIANGLES);
 	drawObject(groundNumVertices, groundvao, groundTexHandle, GL_TRIANGLES);
 	drawObject(skyNumVertices, skyvao, skyTexHandle, GL_TRIANGLES);
 
@@ -569,6 +569,197 @@ void addTriangle(vector<float> & pos, vector<float> & uvs, float posA[3], float 
 	uvs.push_back(uvC[0]); uvs.push_back(uvC[1]);
 }
 
+void createRailSegment( vector<float> & pos, vector<float> & uvs,
+						glm::vec3 point0, glm::vec3 normal0, glm::vec3 binormal0,
+						glm::vec3 point, glm::vec3 normal, glm::vec3 binormal) {
+	// Top
+	pos.push_back(point0.x + normal0[0] - binormal0[0]);
+	pos.push_back(point0.y + normal0[1] - binormal0[1]);
+	pos.push_back(point0.z + normal0[2] - binormal0[2]);
+	uvs.push_back(point0.x + normal0[0] - binormal0[0]);
+	uvs.push_back(point0.y + normal0[1] - binormal0[1]);
+
+	pos.push_back(point0.x + normal0[0] + binormal0[0]);
+	pos.push_back(point0.y + normal0[1] + binormal0[1]);
+	pos.push_back(point0.z + normal0[2] + binormal0[2]);
+	uvs.push_back(point0.x + normal0[0] + binormal0[0]);
+	uvs.push_back(point0.y + normal0[1] + binormal0[1]);
+
+	pos.push_back(point.x + normal[0] + binormal[0]);
+	pos.push_back(point.y + normal[1] + binormal[1]);
+	pos.push_back(point.z + normal[2] + binormal[2]);
+	uvs.push_back(point.x + normal[0] + binormal[0]);
+	uvs.push_back(point.y + normal[1] + binormal[1]);
+
+	pos.push_back(point0.x + normal0[0] - binormal0[0]);
+	pos.push_back(point0.y + normal0[1] - binormal0[1]);
+	pos.push_back(point0.z + normal0[2] - binormal0[2]);
+	uvs.push_back(point0.x + normal0[0] - binormal0[0]);
+	uvs.push_back(point0.y + normal0[1] - binormal0[1]);
+
+	pos.push_back(point.x + normal[0] + binormal[0]);
+	pos.push_back(point.y + normal[1] + binormal[1]);
+	pos.push_back(point.z + normal[2] + binormal[2]);
+	uvs.push_back(point.x + normal[0] + binormal[0]);
+	uvs.push_back(point.y + normal[1] + binormal[1]);
+
+	pos.push_back(point.x + normal[0] - binormal[0]);
+	pos.push_back(point.y + normal[1] - binormal[1]);
+	pos.push_back(point.z + normal[2] - binormal[2]);
+	uvs.push_back(point.x + normal[0] - binormal[0]);
+	uvs.push_back(point.y + normal[1] - binormal[1]);
+
+	// Bottom
+	pos.push_back(point0.x - normal0[0] - binormal0[0]);
+	pos.push_back(point0.y - normal0[1] - binormal0[1]);
+	pos.push_back(point0.z - normal0[2] - binormal0[2]);
+	uvs.push_back(point0.x - normal0[0] - binormal0[0]);
+	uvs.push_back(point0.y - normal0[1] - binormal0[1]);
+
+	pos.push_back(point0.x - normal0[0] + binormal0[0]);
+	pos.push_back(point0.y - normal0[1] + binormal0[1]);
+	pos.push_back(point0.z - normal0[2] + binormal0[2]);
+	uvs.push_back(point0.x - normal0[0] + binormal0[0]);
+	uvs.push_back(point0.y - normal0[1] + binormal0[1]);
+
+	pos.push_back(point.x - normal[0] + binormal[0]);
+	pos.push_back(point.y - normal[1] + binormal[1]);
+	pos.push_back(point.z - normal[2] + binormal[2]);
+	uvs.push_back(point.x - normal[0] + binormal[0]);
+	uvs.push_back(point.y - normal[1] + binormal[1]);
+
+	pos.push_back(point0.x - normal0[0] - binormal0[0]);
+	pos.push_back(point0.y - normal0[1] - binormal0[1]);
+	pos.push_back(point0.z - normal0[2] - binormal0[2]);
+	uvs.push_back(point0.x - normal0[0] - binormal0[0]);
+	uvs.push_back(point0.y - normal0[1] - binormal0[1]);
+
+	pos.push_back(point.x - normal[0] + binormal[0]);
+	pos.push_back(point.y - normal[1] + binormal[1]);
+	pos.push_back(point.z - normal[2] + binormal[2]);
+	uvs.push_back(point.x - normal[0] + binormal[0]);
+	uvs.push_back(point.y - normal[1] + binormal[1]);
+
+	pos.push_back(point.x - normal[0] - binormal[0]);
+	pos.push_back(point.y - normal[1] - binormal[1]);
+	pos.push_back(point.z - normal[2] - binormal[2]);
+	uvs.push_back(point.x - normal[0] - binormal[0]);
+	uvs.push_back(point.y - normal[1] - binormal[1]);
+
+	// Left
+	pos.push_back(point0.x - normal0[0] - binormal0[0]);
+	pos.push_back(point0.y - normal0[1] - binormal0[1]);
+	pos.push_back(point0.z - normal0[2] - binormal0[2]);
+	uvs.push_back(point0.x - normal0[0] - binormal0[0]);
+	uvs.push_back(point0.y - normal0[1] - binormal0[1]);
+
+	pos.push_back(point0.x + normal0[0] - binormal0[0]);
+	pos.push_back(point0.y + normal0[1] - binormal0[1]);
+	pos.push_back(point0.z + normal0[2] - binormal0[2]);
+	uvs.push_back(point0.x + normal0[0] - binormal0[0]);
+	uvs.push_back(point0.y + normal0[1] - binormal0[1]);
+
+	pos.push_back(point.x + normal[0] - binormal[0]);
+	pos.push_back(point.y + normal[1] - binormal[1]);
+	pos.push_back(point.z + normal[2] - binormal[2]);
+	uvs.push_back(point.x + normal[0] - binormal[0]);
+	uvs.push_back(point.y + normal[1] - binormal[1]);
+
+	pos.push_back(point0.x - normal0[0] - binormal0[0]);
+	pos.push_back(point0.y - normal0[1] - binormal0[1]);
+	pos.push_back(point0.z - normal0[2] - binormal0[2]);
+	uvs.push_back(point0.x - normal0[0] - binormal0[0]);
+	uvs.push_back(point0.y - normal0[1] - binormal0[1]);
+
+	pos.push_back(point.x + normal[0] - binormal[0]);
+	pos.push_back(point.y + normal[1] - binormal[1]);
+	pos.push_back(point.z + normal[2] - binormal[2]);
+	uvs.push_back(point.x + normal[0] - binormal[0]);
+	uvs.push_back(point.y + normal[1] - binormal[1]);
+
+	pos.push_back(point.x - normal[0] - binormal[0]);
+	pos.push_back(point.y - normal[1] - binormal[1]);
+	pos.push_back(point.z - normal[2] - binormal[2]);
+	uvs.push_back(point.x - normal[0] - binormal[0]);
+	uvs.push_back(point.y - normal[1] - binormal[1]);
+
+	// Right
+	pos.push_back(point0.x - normal0[0] + binormal0[0]);
+	pos.push_back(point0.y - normal0[1] + binormal0[1]);
+	pos.push_back(point0.z - normal0[2] + binormal0[2]);
+	uvs.push_back(point0.x - normal0[0] + binormal0[0]);
+	uvs.push_back(point0.y - normal0[1] + binormal0[1]);
+
+	pos.push_back(point0.x + normal0[0] + binormal0[0]);
+	pos.push_back(point0.y + normal0[1] + binormal0[1]);
+	pos.push_back(point0.z + normal0[2] + binormal0[2]);
+	uvs.push_back(point0.x + normal0[0] + binormal0[0]);
+	uvs.push_back(point0.y + normal0[1] + binormal0[1]);
+
+	pos.push_back(point.x + normal[0] + binormal[0]);
+	pos.push_back(point.y + normal[1] + binormal[1]);
+	pos.push_back(point.z + normal[2] + binormal[2]);
+	uvs.push_back(point.x + normal[0] + binormal[0]);
+	uvs.push_back(point.y + normal[1] + binormal[1]);
+
+	pos.push_back(point0.x - normal0[0] + binormal0[0]);
+	pos.push_back(point0.y - normal0[1] + binormal0[1]);
+	pos.push_back(point0.z - normal0[2] + binormal0[2]);
+	uvs.push_back(point0.x - normal0[0] + binormal0[0]);
+	uvs.push_back(point0.y - normal0[1] + binormal0[1]);
+
+	pos.push_back(point.x + normal[0] + binormal[0]);
+	pos.push_back(point.y + normal[1] + binormal[1]);
+	pos.push_back(point.z + normal[2] + binormal[2]);
+	uvs.push_back(point.x + normal[0] + binormal[0]);
+	uvs.push_back(point.y + normal[1] + binormal[1]);
+
+	pos.push_back(point.x - normal[0] + binormal[0]);
+	pos.push_back(point.y - normal[1] + binormal[1]);
+	pos.push_back(point.z - normal[2] + binormal[2]);
+	uvs.push_back(point.x - normal[0] + binormal[0]);
+	uvs.push_back(point.y - normal[1] + binormal[1]);
+}
+
+void createPlane(vector<float> & pos, vector<float> & uvs,
+				 glm::vec3 point, glm::vec3 normal, glm::vec3 binormal) {
+	pos.push_back(point.x - normal[0] - binormal[0]);
+	pos.push_back(point.y - normal[1] - binormal[1]);
+	pos.push_back(point.z - normal[2] - binormal[2]);
+	uvs.push_back(point.x - normal[0] - binormal[0]);
+	uvs.push_back(point.y - normal[1] - binormal[1]);
+
+	pos.push_back(point.x - normal[0] + binormal[0]);
+	pos.push_back(point.y - normal[1] + binormal[1]);
+	pos.push_back(point.z - normal[2] + binormal[2]);
+	uvs.push_back(point.x - normal[0] + binormal[0]);
+	uvs.push_back(point.y - normal[1] + binormal[1]);
+
+	pos.push_back(point.x + normal[0] - binormal[0]);
+	pos.push_back(point.y + normal[1] - binormal[1]);
+	pos.push_back(point.z + normal[2] - binormal[2]);
+	uvs.push_back(point.x + normal[0] - binormal[0]);
+	uvs.push_back(point.y + normal[1] - binormal[1]);
+
+	pos.push_back(point.x - normal[0] + binormal[0]);
+	pos.push_back(point.y - normal[1] + binormal[1]);
+	pos.push_back(point.z - normal[2] + binormal[2]);
+	uvs.push_back(point.x - normal[0] + binormal[0]);
+	uvs.push_back(point.y - normal[1] + binormal[1]);
+
+	pos.push_back(point.x + normal[0] + binormal[0]);
+	pos.push_back(point.y + normal[1] + binormal[1]);
+	pos.push_back(point.z + normal[2] + binormal[2]);
+	uvs.push_back(point.x + normal[0] + binormal[0]);
+	uvs.push_back(point.y + normal[1] + binormal[1]);
+
+	pos.push_back(point.x + normal[0] - binormal[0]);
+	pos.push_back(point.y + normal[1] - binormal[1]);
+	pos.push_back(point.z + normal[2] - binormal[2]);
+	uvs.push_back(point.x + normal[0] - binormal[0]);
+	uvs.push_back(point.y + normal[1] - binormal[1]);
+}
+
 void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 {
 	// Init positions/texture map using splines
@@ -605,52 +796,164 @@ void initSpline(int & numVertices, vector<float> & pos, vector<float> & uvs)
 
 		// Initial point
 		glm::vec4 uvecS(pow(0, 3), pow(0, 2), 0, 1);
-		glm::vec3 point = uvecS * basis * control;
-		pos.push_back(point.x);
-		pos.push_back(point.y);
-		pos.push_back(point.z);
-		uvs.push_back(point.x);
-		uvs.push_back(point.y);
-		++numVertices;
+		glm::vec3 point0 = uvecS * basis * control;
+
+		// Initial tangent, normal, binormal
+		glm::vec4 uvecDerivS(3 * pow(0, 3), 2 * 0, 1, 0);
+		glm::vec3 tangent0 = glm::normalize(uvecDerivS * basis * control);
+		glm::vec3 seedV(1, 0, 0);
+		glm::vec3 normal0 = glm::normalize(glm::cross(tangent0, seedV));
+		glm::vec3 binormal0 = glm::normalize(glm::cross(tangent0, normal0));
+
+		// Draw start plane to close rail
+		createPlane(pos, uvs, point0, normal0, binormal0);
+		numVertices += 6;
+
 		for (float u = 0; u < 1; u += .001)
 		{
 			// Calculate the points by stepping u by 0.001
 			glm::vec4 uvec(pow(u, 3), pow(u, 2), u, 1);
-			point = uvec * basis * control;
-			pos.push_back(point.x);
-			pos.push_back(point.y);
-			pos.push_back(point.z);
-			uvs.push_back(point.x);
-			uvs.push_back(point.y);
-			++numVertices;
-			// Push back twice since two vertices for each line
-			pos.push_back(point.x);
-			pos.push_back(point.y);
-			pos.push_back(point.z);
-			uvs.push_back(point.x);
-			uvs.push_back(point.y);
-			++numVertices;
+			glm::vec3 point = uvec * basis * control;
+
+			glm::vec4 uvecDeriv(3 * pow(0, 3), 2 * 0, 1, 0);
+			glm::vec3 tangent = glm::normalize(uvecDeriv * basis * control);
+			glm::vec3 normal = glm::normalize(glm::cross(binormal0, tangent));
+			glm::vec3 binormal = glm::normalize(glm::cross(tangent, normal));
+
+			createRailSegment(pos, uvs, point0, normal0, binormal0, point, normal, binormal);
+
+			point0 = point;
+			normal0 = normal;
+			binormal0 = binormal;
+
+			numVertices += 24;
 		}
+
 		// Final point
 		glm::vec4 uvecF(pow(1, 3), pow(1, 2), 1, 1);
-		point = uvecF * basis * control;
-		pos.push_back(point.x);
-		pos.push_back(point.y);
-		pos.push_back(point.z);
-		uvs.push_back(point.x);
-		uvs.push_back(point.y);
-		++numVertices;
+		glm::vec3 point = uvecF * basis * control;
+
+		// Initial tangent, normal, binormal
+		glm::vec4 uvecDeriv(3 * pow(0, 3), 2 * 0, 1, 0);
+		glm::vec3 tangent = glm::normalize(uvecDeriv * basis * control);
+		glm::vec3 normal = glm::normalize(glm::cross(binormal0, tangent));
+		glm::vec3 binormal = glm::normalize(glm::cross(tangent, normal));
+
+		// Draw start plane to close rail
+		createPlane(pos, uvs, point, normal, binormal);
+		numVertices += 6;
 	}
 }
 
 void initGround(int & numVertices, vector<float> & pos, vector<float> & uvs)
 {
-	numVertices = 0;
+	float posA[3], posB[3], posC[3], uvA[2], uvB[2], uvC[2];
+
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
+	posC[0] = 512.0f; posC[1] = -512.0f; posC[2] = -2.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 0.0f;
+	uvC[0] = 0.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+
+	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
+	posC[0] = 512.0f; posC[1] = 512.0f; posC[2] = -2.0f;
+	uvA[0] = 0.0f; uvA[1] = 2.0f;
+	uvB[0] = 2.0f; uvB[1] = 0.0f;
+	uvC[0] = 2.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+
+	numVertices = 6;
 }
 
 void initSky(int & numVertices, vector<float> & pos, vector<float> & uvs)
 {
-	numVertices = 0;
+	// Make a cube
+	float posA[3], posB[3], posC[3], uvA[2], uvB[2], uvC[2];
+
+	// Top
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = 512.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = 512.0f;
+	posC[0] = 512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 0.0f;
+	uvC[0] = 0.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = 512.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = 512.0f;
+	posC[0] = 512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 2.0f;
+	uvB[0] = 2.0f; uvB[1] = 0.0f;
+	uvC[0] = 2.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+
+	// Left
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
+	posC[0] = -512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 0.0f;
+	uvC[0] = 2.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posB[0] = -512.0f; posB[1] = 512.0f; posB[2] = 512.0f;
+	posC[0] = -512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 2.0f;
+	uvC[0] = 0.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+
+	// Right
+	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
+	posC[0] = 512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 0.0f;
+	uvC[0] = 2.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+	posA[0] = 512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = 512.0f;
+	posC[0] = 512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 2.0f;
+	uvC[0] = 0.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+
+	// Front
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posB[0] = 512.0f; posB[1] = -512.0f; posB[2] = -2.0f;
+	posC[0] = 512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 0.0f;
+	uvC[0] = 2.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+	posA[0] = -512.0f; posA[1] = -512.0f; posA[2] = -2.0f;
+	posB[0] = 512.0f; posB[1] = -512.0f; posB[2] = 512.0f;
+	posC[0] = -512.0f; posC[1] = -512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 2.0f;
+	uvC[0] = 0.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+
+	// Back
+	posA[0] = -512.0f; posA[1] = 512.0f; posA[2] = -2.0f;
+	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = -2.0f;
+	posC[0] = 512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 0.0f;
+	uvC[0] = 2.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+	posA[0] = -512.0f; posA[1] = 512.0f; posA[2] = -2.0f;
+	posB[0] = 512.0f; posB[1] = 512.0f; posB[2] = 512.0f;
+	posC[0] = -512.0f; posC[1] = 512.0f; posC[2] = 512.0f;
+	uvA[0] = 0.0f; uvA[1] = 0.0f;
+	uvB[0] = 2.0f; uvB[1] = 2.0f;
+	uvC[0] = 0.0f; uvC[1] = 2.0f;
+	addTriangle(pos, uvs, posA, posB, posC, uvA, uvB, uvC);
+
+	numVertices = 30;
 }
 
 void initScene(int argc, char *argv[])
