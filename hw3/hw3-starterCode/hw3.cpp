@@ -1,7 +1,7 @@
 /* **************************
  * CSCI 420
  * Assignment 3 Raytracer
- * Name: <Your name here>
+ * Name: Wilson Yeh
  * *************************
 */
 
@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <glm/glm.hpp>
 #ifdef WIN32
   #define strcasecmp _stricmp
 #endif
@@ -89,22 +91,164 @@ void plot_pixel_display(int x,int y,unsigned char r,unsigned char g,unsigned cha
 void plot_pixel_jpeg(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 void plot_pixel(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 
+double sphere_intersection(unsigned int sphereInd, glm::vec3 ray) {
+	glm::vec3 spherepos(spheres[sphereInd].position[0], spheres[sphereInd].position[1], spheres[sphereInd].position[2]);
+	double radius = spheres[sphereInd].radius;
+	double b = 2 * glm::dot(ray, -spherepos);
+	double c = glm::dot(spherepos, spherepos) - radius*radius;
+
+	double term = b * b - 4 * c;
+	if (term < 0) {
+		return -1;
+	}
+	double sqroot = sqrt(term);
+	double negroot = (-b - sqroot) / 2;
+	if (negroot > 0) {
+		return negroot;
+	}
+	else {
+		double posroot = (-b + sqroot) / 2;
+		return posroot;
+	}
+}
+
+double triangle_intersection(unsigned int triangleInd, glm::vec3 ray) {
+	// Find intersection point of ray and plane of triangle
+	Vertex vert0 = triangles[triangleInd].v[0];
+	Vertex vert1 = triangles[triangleInd].v[1];
+	Vertex vert2 = triangles[triangleInd].v[2];
+	glm::vec3 v0(vert0.position[0], vert0.position[1], vert0.position[2]);
+	glm::vec3 v1(vert1.position[0], vert1.position[1], vert1.position[2]);
+	glm::vec3 v2(vert2.position[0], vert2.position[1], vert2.position[2]);
+	glm::vec3 side0 = v0 - v1;
+	glm::vec3 side1 = v0 - v2;
+	glm::vec3 planeNormal = glm::normalize(glm::cross(side0, side1));
+
+	double D = glm::dot(planeNormal, v0);
+	double denom = glm::dot(planeNormal, ray);
+	if (denom == 0) {
+		return -1;
+	}
+
+	double t = D / denom;
+	if (t < 0) {
+		return t;
+	}
+
+	// Check if intersection point is in triangle
+	glm::vec3 intersection = ray * (float)t;
+	double iprojx;
+	double iprojy;
+	double v0projx;
+	double v0projy;
+	double v1projx;
+	double v1projy;
+	double v2projx;
+	double v2projy;
+
+	// Project triangle and intersection
+	if (glm::dot(glm::vec3(1, 0, 0), planeNormal) != 0) {
+		// Project onto x=0 (normals are not perpendicular)
+		iprojx = intersection[1];
+		iprojy = intersection[2];
+		v0projx = v0[1];
+		v0projy = v0[2];
+		v1projx = v1[1];
+		v1projy = v1[2];
+		v2projx = v2[1];
+		v2projy = v2[2];
+	}
+	else if (glm::dot(glm::vec3(0, 1, 0), planeNormal) != 0) {
+		// Project onto y=0 (normals are not perpendicular)
+		iprojx = intersection[0];
+		iprojy = intersection[2];
+		v0projx = v0[0];
+		v0projy = v0[2];
+		v1projx = v1[0];
+		v1projy = v1[2];
+		v2projx = v2[0];
+		v2projy = v2[2];
+	}
+	else if (glm::dot(glm::vec3(0, 0, 1), planeNormal) != 0) {
+		// Project onto z=0 (normals are not perpendicular)
+		iprojx = intersection[0];
+		iprojy = intersection[1];
+		v0projx = v0[0];
+		v0projy = v0[1];
+		v1projx = v1[0];
+		v1projy = v1[1];
+		v2projx = v2[0];
+		v2projy = v2[1];
+	}
+
+	double triangleArea = 0.5 * ((v1projx - v0projx) * (v2projy - v0projy) - (v2projx - v0projx) * (v1projy - v0projy));
+	double alpha = 0.5 / triangleArea * ((v1projx - iprojx) * (v2projy - iprojy) - (v2projx - iprojx) * (v1projy - iprojy));
+	double beta = 0.5 / triangleArea * ((iprojx - v0projx) * (v2projy - v0projy) - (v2projx - v0projx) * (iprojy - v0projy));
+	double gamma = 0.5 / triangleArea * ((v1projx - v0projx) * (iprojy - v0projy) - (iprojx - v0projx) * (v1projy - v0projy));
+
+	if (alpha >= 0 && beta >= 0 && gamma >= 0 && alpha <= 1 && beta <= 1 && gamma <= 1 &&
+		1 - alpha - beta - gamma >= -0.0001 && 1 - alpha - beta - gamma <= 0.0001) { // +-0.0001 error
+		// Intersection point is inside triangle
+		return t;
+	}
+	else {
+		// Intersection point is outside triangle
+		return -1;
+	}
+}
+
 //MODIFY THIS FUNCTION
 void draw_scene()
 {
-  //a simple test output
-  for(unsigned int x=0; x<WIDTH; x++)
-  {
-    glPointSize(2.0);  
-    glBegin(GL_POINTS);
-    for(unsigned int y=0; y<HEIGHT; y++)
-    {
-      plot_pixel(x, y, x % 256, y % 256, (x+y) % 256);
-    }
-    glEnd();
-    glFlush();
-  }
-  printf("Done!\n"); fflush(stdout);
+	double fovRad = fov * 3.14159265 / 180;
+
+	double halfWidth = WIDTH / 2;
+	double halfHeight = HEIGHT / 2;
+
+	double imageZ = -1;
+	double imageY = tan(fovRad / 2);
+	double imageX = (1.0 * WIDTH / HEIGHT) * imageY;
+
+	for(unsigned int x=0; x<WIDTH; x++)
+	{
+		glPointSize(2.0);  
+		glBegin(GL_POINTS);
+
+		// Shoot ray from (0,0,0) camera to image plane
+		double rayX = (x - halfWidth) / halfWidth * imageX; // Proportionally close to left/right side of image plane
+		for(unsigned int y=0; y<HEIGHT; y++)
+		{
+			double rayY = (y - halfHeight) / halfHeight * imageY; // Proportionally close to top/bottom side of image plane
+			glm::vec3 ray = glm::normalize(glm::vec3(rayX, rayY, imageZ));
+
+			// Calculate minimum distance to a sphere
+			double tmin = -1.0;
+
+			for (int i = 0; i < num_spheres; ++i) {
+				double t = sphere_intersection(i, ray);
+				if (t > 0 && (tmin < 0 || t < tmin)) {
+					tmin = t;
+				}
+			}
+
+			for (int i = 0; i < num_triangles; ++i) {
+				double t = triangle_intersection(i, ray);
+				if (t > 0 && (tmin < 0 || t < tmin)) {
+					tmin = t;
+				}
+			}
+			
+			if (tmin > 0) {
+				plot_pixel(x, y, 0, 0, 0);
+			}
+			else {
+				plot_pixel(x, y, 255, 255, 255);
+			}
+		}
+		glEnd();
+		glFlush();
+	}
+	printf("Done!\n"); fflush(stdout);
 }
 
 void plot_pixel_display(int x, int y, unsigned char r, unsigned char g, unsigned char b)
