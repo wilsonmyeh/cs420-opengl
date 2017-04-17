@@ -30,7 +30,7 @@
 
 #define MAX_TRIANGLES 20000
 #define MAX_SPHERES 100
-#define MAX_LIGHTS 100
+#define MAX_LIGHTS 540
 
 char * filename = NULL;
 
@@ -49,6 +49,9 @@ int mode = MODE_DISPLAY;
 
 // margin of error for floating point operations
 #define EPSILON 0.01
+
+// How fine the supersampling is. Square this number for the number of subpixels per pixel
+#define SUPER_SAMPLE 3
 
 unsigned char buffer[HEIGHT][WIDTH][3];
 
@@ -211,23 +214,47 @@ double* triangle_intersection(unsigned int triangleInd, glm::vec3 origin, glm::v
 //MODIFY THIS FUNCTION
 void draw_scene()
 {
-	double fovRad = fov * 3.14159265 / 180;
+	unsigned char super_sample_buffer[SUPER_SAMPLE][HEIGHT*SUPER_SAMPLE][3];
 
-	double halfWidth = WIDTH / 2;
-	double halfHeight = HEIGHT / 2;
+	double fovRad = fov * 3.14159265 / 180;
 
 	double imageZ = -1;
 	double imageY = tan(fovRad / 2);
 	double imageX = (1.0 * WIDTH / HEIGHT) * imageY;
 
-	for(unsigned int x=0; x<WIDTH; x++)
+	double halfWidth = WIDTH / 2 * SUPER_SAMPLE;
+	double halfHeight = HEIGHT / 2 * SUPER_SAMPLE;
+
+	for(unsigned int x=0; x<WIDTH*SUPER_SAMPLE; x++)
 	{
-		glPointSize(2.0);  
-		glBegin(GL_POINTS);
+		if (x > 0 && x % SUPER_SAMPLE == 0) {
+			glPointSize(2.0);
+			glBegin(GL_POINTS);
+
+			for (int ypixel = 0; ypixel < HEIGHT; ++ypixel) {
+				unsigned int avgr = 0;
+				unsigned int avgg = 0;
+				unsigned int avgb = 0;
+				for (int i = 0; i < SUPER_SAMPLE; ++i) {
+					for (int j = ypixel * SUPER_SAMPLE; j < ypixel * SUPER_SAMPLE + SUPER_SAMPLE; ++j) {
+						avgr += super_sample_buffer[i][j][0];
+						avgg += super_sample_buffer[i][j][1];
+						avgb += super_sample_buffer[i][j][2];
+					}
+				}
+				plot_pixel(x / 3 - 1, ypixel,
+					static_cast<unsigned char>(avgr / SUPER_SAMPLE / SUPER_SAMPLE),
+					static_cast<unsigned char>(avgg / SUPER_SAMPLE / SUPER_SAMPLE),
+					static_cast<unsigned char>(avgb / SUPER_SAMPLE / SUPER_SAMPLE));
+			}
+
+			glEnd();
+			glFlush();
+		}
 
 		// Shoot ray from (0,0,0) camera to image plane
 		double rayX = (x - halfWidth) / halfWidth * imageX; // Proportionally close to left/right side of image plane
-		for(unsigned int y=0; y<HEIGHT; y++)
+		for(unsigned int y=0; y<HEIGHT*SUPER_SAMPLE; y++)
 		{
 			double rayY = (y - halfHeight) / halfHeight * imageY; // Proportionally close to top/bottom side of image plane
 			glm::vec3 ray = glm::normalize(glm::vec3(rayX, rayY, imageZ));
@@ -356,17 +383,39 @@ void draw_scene()
 				for (int i = 0; i < 3; ++i) {
 					rgb[i] += ambient_light[i];
 					if (rgb[i] > 1.0) { rgb[i] = 1.0; }
+					super_sample_buffer[x % 3][y][i] = static_cast<unsigned char>(rgb[i] * 255);
 				}
-				plot_pixel(x, y, static_cast<unsigned char>(rgb[0] * 255), static_cast<unsigned char>(rgb[1] * 255), static_cast<unsigned char>(rgb[2] * 255));
 			}
 			else {
 				// No intersection, white background
-				plot_pixel(x, y, 255, 255, 255);
+				for (int i = 0; i < 3; ++i) {
+					super_sample_buffer[x % 3][y][i] = static_cast<unsigned char>(255);
+				}
 			}
 		}
-		glEnd();
-		glFlush();
 	}
+	glPointSize(2.0);
+	glBegin(GL_POINTS);
+
+	for (int ypixel = 0; ypixel < HEIGHT; ++ypixel) {
+		unsigned int avgr = 0;
+		unsigned int avgg = 0;
+		unsigned int avgb = 0;
+		for (int i = 0; i < SUPER_SAMPLE; ++i) {
+			for (int j = ypixel * SUPER_SAMPLE; j < ypixel * SUPER_SAMPLE + SUPER_SAMPLE; ++j) {
+				avgr += super_sample_buffer[i][j][0];
+				avgg += super_sample_buffer[i][j][1];
+				avgb += super_sample_buffer[i][j][2];
+			}
+		}
+		plot_pixel(WIDTH - 1, ypixel,
+			static_cast<unsigned char>(avgr / SUPER_SAMPLE),
+			static_cast<unsigned char>(avgg / SUPER_SAMPLE),
+			static_cast<unsigned char>(avgb / SUPER_SAMPLE));
+	}
+
+	glEnd();
+	glFlush();
 	printf("Done!\n"); fflush(stdout);
 }
 
@@ -497,12 +546,14 @@ int loadScene(char *argv)
       printf("found light\n");
 	  parse_doubles(file, "pos:", l.position);
 	  parse_doubles(file, "col:", l.color);
-	  l.color[0] /= 9;
-	  l.color[1] /= 9;
-	  l.color[2] /= 9;
-	  for (int i = -1; i < 2; i+=2) {
-		  for (int j = -1; j < 2; j+=2) {
-			  for (int k = -1; k < 2; k+=2) {
+
+	  // Multiply into 27 lights in a cube for soft shadows
+	  l.color[0] /= 27;
+	  l.color[1] /= 27;
+	  l.color[2] /= 27;
+	  for (int i = -1; i < 2; ++i) {
+		  for (int j = -1; j < 2; ++j) {
+			  for (int k = -1; k < 2; ++k) {
 				  if (num_lights == MAX_LIGHTS)
 				  {
 					  printf("too many lights, you should increase MAX_LIGHTS!\n");
@@ -512,14 +563,13 @@ int loadScene(char *argv)
 				  templ.color[0] = l.color[0];
 				  templ.color[1] = l.color[1];
 				  templ.color[2] = l.color[2];
-				  templ.position[0] = l.position[0] + 0.35 * i;
-				  templ.position[1] = l.position[1] + 0.35 * j;
-				  templ.position[2] = l.position[2] + 0.35 * k;
+				  templ.position[0] = l.position[0] + 0.05 * i;
+				  templ.position[1] = l.position[1] + 0.05 * j;
+				  templ.position[2] = l.position[2] + 0.05 * k;
 				  lights[num_lights++] = templ;
 			  }
 		  }
 	  }
-	  lights[num_lights++] = l;
     }
     else
     {
