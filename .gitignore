@@ -39,3 +39,8 @@ Recording/
 *.exe
 *.out
 *.app
+
+# Logs
+*.tlog
+*.log
+*.pdb

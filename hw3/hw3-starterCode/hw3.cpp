@@ -47,6 +47,9 @@ int mode = MODE_DISPLAY;
 //the field of view of the camera
 #define fov 60.0
 
+// margin of error for floating point operations
+#define EPSILON 0.01
+
 unsigned char buffer[HEIGHT][WIDTH][3];
 
 struct Vertex
@@ -91,11 +94,11 @@ void plot_pixel_display(int x,int y,unsigned char r,unsigned char g,unsigned cha
 void plot_pixel_jpeg(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 void plot_pixel(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 
-double sphere_intersection(unsigned int sphereInd, glm::vec3 ray) {
+double sphere_intersection(unsigned int sphereInd, glm::vec3 origin, glm::vec3 ray) {
 	glm::vec3 spherepos(spheres[sphereInd].position[0], spheres[sphereInd].position[1], spheres[sphereInd].position[2]);
 	double radius = spheres[sphereInd].radius;
-	double b = 2 * glm::dot(ray, -spherepos);
-	double c = glm::dot(spherepos, spherepos) - radius*radius;
+	double b = 2 * glm::dot(ray, origin - spherepos);
+	double c = glm::dot(origin - spherepos, origin - spherepos) - radius*radius;
 
 	double term = b * b - 4 * c;
 	if (term < 0) {
@@ -112,7 +115,9 @@ double sphere_intersection(unsigned int sphereInd, glm::vec3 ray) {
 	}
 }
 
-double triangle_intersection(unsigned int triangleInd, glm::vec3 ray) {
+// For intersection point, returns t and barycentric coordinates
+// TODO: switch to smart ptr later
+double* triangle_intersection(unsigned int triangleInd, glm::vec3 origin, glm::vec3 ray) {
 	// Find intersection point of ray and plane of triangle
 	Vertex vert0 = triangles[triangleInd].v[0];
 	Vertex vert1 = triangles[triangleInd].v[1];
@@ -120,23 +125,29 @@ double triangle_intersection(unsigned int triangleInd, glm::vec3 ray) {
 	glm::vec3 v0(vert0.position[0], vert0.position[1], vert0.position[2]);
 	glm::vec3 v1(vert1.position[0], vert1.position[1], vert1.position[2]);
 	glm::vec3 v2(vert2.position[0], vert2.position[1], vert2.position[2]);
-	glm::vec3 side0 = v0 - v1;
-	glm::vec3 side1 = v0 - v2;
+	glm::vec3 side0 = v1 - v0;
+	glm::vec3 side1 = v2 - v0;
 	glm::vec3 planeNormal = glm::normalize(glm::cross(side0, side1));
-
-	double D = glm::dot(planeNormal, v0);
+	
 	double denom = glm::dot(planeNormal, ray);
-	if (denom == 0) {
-		return -1;
+	if (denom >= -EPSILON && denom <= EPSILON) { // almost 0, ray parallel to plane
+		return new double[4]{ -1, 0, 0, 0 };
 	}
 
-	double t = D / denom;
+	double D = glm::dot(planeNormal, v0);
+
+	// triangle normals always point towards camera in positive z direction
+	// primary rays point in negative z direction, resulting in negative dot product
+	// check sign against ray orientation
+	double sign = (ray[2] < 0) ? 1.0 : -1.0;
+	double t = (sign * glm::dot(planeNormal, origin) + D) / denom;
+
 	if (t < 0) {
-		return t;
+		return new double[4]{ t, 0, 0, 0 };
 	}
 
 	// Check if intersection point is in triangle
-	glm::vec3 intersection = ray * (float)t;
+	glm::vec3 intersection = origin + (ray * (float)t);
 	double iprojx;
 	double iprojy;
 	double v0projx;
@@ -187,13 +198,13 @@ double triangle_intersection(unsigned int triangleInd, glm::vec3 ray) {
 	double gamma = 0.5 / triangleArea * ((v1projx - v0projx) * (iprojy - v0projy) - (iprojx - v0projx) * (v1projy - v0projy));
 
 	if (alpha >= 0 && beta >= 0 && gamma >= 0 && alpha <= 1 && beta <= 1 && gamma <= 1 &&
-		1 - alpha - beta - gamma >= -0.0001 && 1 - alpha - beta - gamma <= 0.0001) { // +-0.0001 error
+		1 - alpha - beta - gamma >= -EPSILON && 1 - alpha - beta - gamma <= EPSILON) { // +-EPSILON error
 		// Intersection point is inside triangle
-		return t;
+		return new double[4]{ t, alpha, beta, gamma };
 	}
 	else {
 		// Intersection point is outside triangle
-		return -1;
+		return new double[4]{ -5, 0, 0, 0 };
 	}
 }
 
@@ -221,27 +232,135 @@ void draw_scene()
 			double rayY = (y - halfHeight) / halfHeight * imageY; // Proportionally close to top/bottom side of image plane
 			glm::vec3 ray = glm::normalize(glm::vec3(rayX, rayY, imageZ));
 
-			// Calculate minimum distance to a sphere
+			// Find closest intersection
 			double tmin = -1.0;
+			bool isSphere = false;
+			int objectInd = -1;
 
 			for (int i = 0; i < num_spheres; ++i) {
-				double t = sphere_intersection(i, ray);
-				if (t > 0 && (tmin < 0 || t < tmin)) {
+				double t = sphere_intersection(i, glm::vec3(0,0,0), ray);
+				if (t > EPSILON && (tmin < 0 || t < tmin)) {
 					tmin = t;
+					isSphere = true;
+					objectInd = i;
 				}
 			}
 
+			// Save barycentric coordinates if triangle intersection
+			double barycentric_coords[3];
 			for (int i = 0; i < num_triangles; ++i) {
-				double t = triangle_intersection(i, ray);
-				if (t > 0 && (tmin < 0 || t < tmin)) {
+				double* intersection_data = triangle_intersection(i, glm::vec3(0,0,0), ray);
+				double t = intersection_data[0];
+				if (t > EPSILON && (tmin < 0 || t < tmin)) {
 					tmin = t;
+					isSphere = false;
+					objectInd = i;
+					barycentric_coords[0] = intersection_data[1];
+					barycentric_coords[1] = intersection_data[2];
+					barycentric_coords[2] = intersection_data[3];
 				}
+				delete[] intersection_data; // switch to smart ptr later
 			}
-			
+
 			if (tmin > 0) {
-				plot_pixel(x, y, 0, 0, 0);
+				// Add contribution from each light to the intersection point
+				glm::vec3 intersectPoint = ray * (float)tmin;
+				double rgb[3];
+				for (int i = 0; i < 3; ++i) {
+					rgb[i] = 0;
+				}
+
+				glm::vec3 pointNormal;
+				double pointDiffuse[3];
+				double pointSpecular[3];
+				double pointShininess;
+				if (isSphere) {
+					// Calculate point normal and properties of sphere
+					Sphere sphere = spheres[objectInd];
+					pointNormal = intersectPoint - glm::vec3(sphere.position[0], sphere.position[1], sphere.position[2]);
+					pointNormal /= sphere.radius; // normalize
+
+					for (int j = 0; j < 3; ++j) {
+						pointDiffuse[j] = sphere.color_diffuse[j];
+						pointSpecular[j] = sphere.color_specular[j];
+					}
+					pointShininess = spheres[objectInd].shininess;
+				}
+				else {
+					// Calculate interpolated normal and coefficients of triangle
+					pointNormal = glm::vec3(0, 0, 0);
+					for (int j = 0; j < 3; ++j) {
+						pointDiffuse[j] = 0.0;
+						pointSpecular[j] = 0.0;
+					}
+					pointShininess = 0.0;
+					for (int i = 0; i < 3; ++i) {
+						Vertex v = triangles[objectInd].v[i];
+						glm::vec3 normal(v.normal[0], v.normal[1], v.normal[2]);
+						pointNormal += glm::normalize(normal) * (float)barycentric_coords[i];
+
+						for (int j = 0; j < 3; ++j) {
+							pointDiffuse[j] += v.color_diffuse[j] * (float)barycentric_coords[i];
+							pointSpecular[j] += v.color_specular[j] * (float)barycentric_coords[i];
+						}
+						pointShininess += v.shininess * (float)barycentric_coords[i];
+					}
+				}
+
+				for (int i = 0; i < num_lights; ++i) {
+					// Check if the light is blocked (object in shadow)
+					bool inShadow = false;
+					glm::vec3 lightPos(lights[i].position[0], lights[i].position[1], lights[i].position[2]);
+					glm::vec3 shadowRay = lightPos - intersectPoint;
+					double len = sqrt(glm::dot(shadowRay, shadowRay));
+					if (len <= 0) {
+						continue;
+					}
+					shadowRay /= (float)len; // normalize
+					double lightT = len + EPSILON; // t-steps from intersection to light
+
+					for (int j = 0; j < num_spheres && !inShadow; ++j) {
+						double t = sphere_intersection(j, intersectPoint, shadowRay);
+						if (t > EPSILON && t < lightT) {
+							// There is a sphere between the intersection point and the light source
+							inShadow = true;
+						}
+					}
+					for (int j = 0; j < num_triangles && !inShadow; ++j) {
+						double* intersection_data = triangle_intersection(j, intersectPoint, shadowRay);
+						double t = intersection_data[0];
+						if (t > EPSILON && t < lightT) {
+							// There is a triangle between the intersection point and the light source
+							inShadow = true;
+						}
+						delete[] intersection_data; // switch to smart ptr later
+					}
+
+					if (!inShadow) {
+						// Add light's contribution
+						double ldotn = glm::dot(shadowRay, pointNormal);
+						if (ldotn < 0) {
+							ldotn = 0;
+						}
+						double rdotv = glm::dot(-shadowRay - (2*glm::dot(-shadowRay, pointNormal) * pointNormal), -ray);
+						if (rdotv < 0) {
+							rdotv = 0;
+						}
+						for (int j = 0; j < 3; ++j) {
+							rgb[j] += lights[i].color[j] * (pointDiffuse[j] * ldotn + pointSpecular[j] * pow(rdotv, pointShininess));
+						}
+					}
+				}
+
+				// Add ambient light, clamp any blown out values
+				for (int i = 0; i < 3; ++i) {
+					rgb[i] += ambient_light[i];
+					if (rgb[i] > 1.0) { rgb[i] = 1.0; }
+				}
+				plot_pixel(x, y, static_cast<unsigned char>(rgb[0] * 255), static_cast<unsigned char>(rgb[1] * 255), static_cast<unsigned char>(rgb[2] * 255));
 			}
 			else {
+				// No intersection, white background
 				plot_pixel(x, y, 255, 255, 255);
 			}
 		}
@@ -376,15 +495,31 @@ int loadScene(char *argv)
     else if(strcasecmp(type,"light")==0)
     {
       printf("found light\n");
-      parse_doubles(file,"pos:",l.position);
-      parse_doubles(file,"col:",l.color);
-
-      if(num_lights == MAX_LIGHTS)
-      {
-        printf("too many lights, you should increase MAX_LIGHTS!\n");
-        exit(0);
-      }
-      lights[num_lights++] = l;
+	  parse_doubles(file, "pos:", l.position);
+	  parse_doubles(file, "col:", l.color);
+	  l.color[0] /= 9;
+	  l.color[1] /= 9;
+	  l.color[2] /= 9;
+	  for (int i = -1; i < 2; i+=2) {
+		  for (int j = -1; j < 2; j+=2) {
+			  for (int k = -1; k < 2; k+=2) {
+				  if (num_lights == MAX_LIGHTS)
+				  {
+					  printf("too many lights, you should increase MAX_LIGHTS!\n");
+					  exit(0);
+				  }
+				  Light templ;
+				  templ.color[0] = l.color[0];
+				  templ.color[1] = l.color[1];
+				  templ.color[2] = l.color[2];
+				  templ.position[0] = l.position[0] + 0.35 * i;
+				  templ.position[1] = l.position[1] + 0.35 * j;
+				  templ.position[2] = l.position[2] + 0.35 * k;
+				  lights[num_lights++] = templ;
+			  }
+		  }
+	  }
+	  lights[num_lights++] = l;
     }
     else
     {
