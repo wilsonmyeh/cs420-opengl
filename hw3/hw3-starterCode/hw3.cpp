@@ -242,7 +242,7 @@ void draw_scene()
 						avgb += super_sample_buffer[i][j][2];
 					}
 				}
-				plot_pixel(x / 3 - 1, ypixel,
+				plot_pixel(x / SUPER_SAMPLE - 1, ypixel,
 					static_cast<unsigned char>(avgr / SUPER_SAMPLE / SUPER_SAMPLE),
 					static_cast<unsigned char>(avgg / SUPER_SAMPLE / SUPER_SAMPLE),
 					static_cast<unsigned char>(avgb / SUPER_SAMPLE / SUPER_SAMPLE));
@@ -383,13 +383,13 @@ void draw_scene()
 				for (int i = 0; i < 3; ++i) {
 					rgb[i] += ambient_light[i];
 					if (rgb[i] > 1.0) { rgb[i] = 1.0; }
-					super_sample_buffer[x % 3][y][i] = static_cast<unsigned char>(rgb[i] * 255);
+					super_sample_buffer[x % SUPER_SAMPLE][y][i] = static_cast<unsigned char>(rgb[i] * 255);
 				}
 			}
 			else {
 				// No intersection, white background
 				for (int i = 0; i < 3; ++i) {
-					super_sample_buffer[x % 3][y][i] = static_cast<unsigned char>(255);
+					super_sample_buffer[x % SUPER_SAMPLE][y][i] = static_cast<unsigned char>(255);
 				}
 			}
 		}
